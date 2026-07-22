@@ -9,7 +9,7 @@ const Header = () => {
     };
 
     return (
-        <header className="h-16 flex px-4 items-center justify-end border-b border-slate-500 bg-white shrink-0">
+        <header className="h-16 flex px-4 items-center justify-end border-b-2 border-olive-900 bg-white shrink-0">
             <div className="h-full flex items-center gap-4">
                 <div className="flex flex-col items-end">
                     <span className="text-sm font-semibold text-black leading-none mb-1">
