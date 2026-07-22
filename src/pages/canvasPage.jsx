@@ -80,7 +80,7 @@ export default function CanvasPage() {
             </button>
             <div className="h-6 w-px bg-slate-200 my-auto" />
             <span className="text-xs text-slate-500 my-auto px-1 font-mono">
-            Nodes: {nodes.length}
+                Nodes: {nodes.length}
             </span>
         </div>
 

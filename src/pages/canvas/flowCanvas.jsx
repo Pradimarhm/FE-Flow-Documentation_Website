@@ -1,61 +1,82 @@
-import React, { useMemo } from 'react';
+import React, { useMemo } from "react";
 import {
     ReactFlow,
     MiniMap,
     Controls,
     Background,
     BackgroundVariant,
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
-import FloatingNodeMenu from './floatingNodeMenu';
-import ApiNode from './apiNode';
-import { Copy, CopyPlus, Trash2, ClipboardPaste } from 'lucide-react';
-import { useFlowEditor } from '@/hooks/useFlowEditor'; 
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import FloatingNodeMenu from "./floatingNodeMenu";
+import ApiNode from "./apiNode";
+import { Copy, CopyPlus, Trash2, ClipboardPaste } from "lucide-react";
+import { useFlowEditor } from "@/hooks/useFlowEditor";
 
 export default function FlowCanvas({ setSelectedNode }) {
     const {
-        nodes, edges, onNodesChange, onEdgesChange,
-        onConnect, onDrop, onDragOver,
-        menu, copiedNode, reactFlowWrapper,
-        onNodeContextMenu, onPaneContextMenu, // Tangkap fungsi klik kanan kanvas
-        actions, interactions
+        nodes,
+        edges,
+        onNodesChange,
+        onEdgesChange,
+        onConnect,
+        onDrop,
+        onDragOver,
+        menu,
+        copiedNode,
+        reactFlowWrapper,
+        onNodeContextMenu,
+        onPaneContextMenu, // Tangkap fungsi klik kanan kanvas
+        actions,
+        interactions,
     } = useFlowEditor(setSelectedNode);
 
     const nodeTypes = useMemo(() => ({ customApi: ApiNode }), []);
 
     return (
-        <div className="w-full h-full relative bg-olive-100" ref={reactFlowWrapper}>
-            <FloatingNodeMenu/>
-            
+        <div
+            className="w-full h-full relative bg-olive-100"
+            ref={reactFlowWrapper}
+        >
+            <FloatingNodeMenu />
+
             {/* CONTEXT MENU DINAMIS */}
             {menu && (
-                <div 
+                <div
                     style={{ top: menu.top, left: menu.left }}
                     className="absolute z-50 bg-olive-50 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] flex flex-col w-40"
                 >
                     {/* Hanya tampilkan aksi Node jika yang diklik adalah Node */}
-                    {menu.type === 'node' && (
+                    {menu.type === "node" && (
                         <>
-                            <button onClick={actions.duplicateNode} className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-olive-900 hover:bg-olive-200 border-b-2 border-olive-900 text-left cursor-pointer transition-colors">
+                            <button
+                                onClick={actions.duplicateNode}
+                                className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-olive-900 hover:bg-olive-200 border-b-2 border-olive-900 text-left cursor-pointer transition-colors"
+                            >
                                 <CopyPlus size={14} /> Duplikat
                             </button>
-                            <button onClick={actions.copyNode} className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-olive-900 hover:bg-olive-200 border-b-2 border-olive-900 text-left cursor-pointer transition-colors">
+                            <button
+                                onClick={actions.copyNode}
+                                className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-olive-900 hover:bg-olive-200 border-b-2 border-olive-900 text-left cursor-pointer transition-colors"
+                            >
                                 <Copy size={14} /> Copy
                             </button>
                         </>
                     )}
 
                     {/* Tombol Paste selalu muncul, tapi bisa di-disable jika clipboard kosong */}
-                    <button 
-                        onClick={actions.pasteNode} 
-                        disabled={!copiedNode} 
-                        className={`flex items-center gap-2 px-3 py-2 text-xs font-bold text-left border-olive-900 transition-colors ${copiedNode ? 'text-olive-900 hover:bg-olive-200 cursor-pointer' : 'text-olive-400 bg-olive-100 cursor-not-allowed opacity-60'} ${menu.type === 'node' ? 'border-b-2' : ''}`}
+                    <button
+                        onClick={actions.pasteNode}
+                        disabled={!copiedNode}
+                        className={`flex items-center gap-2 px-3 py-2 text-xs font-bold text-left border-olive-900 transition-colors ${copiedNode ? "text-olive-900 hover:bg-olive-200 cursor-pointer" : "text-olive-400 bg-olive-100 cursor-not-allowed opacity-60"} ${menu.type === "node" ? "border-b-2" : ""}`}
                     >
                         <ClipboardPaste size={14} /> Paste
                     </button>
 
-                    {menu.type === 'node' && (
-                        <button onClick={actions.deleteNode} className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100 text-left cursor-pointer transition-colors">
+                    {menu.type === "node" && (
+                        <button
+                            onClick={actions.deleteNode}
+                            className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100 text-left cursor-pointer transition-colors"
+                        >
                             <Trash2 size={14} /> Hapus
                         </button>
                     )}
@@ -73,14 +94,22 @@ export default function FlowCanvas({ setSelectedNode }) {
                 onDragOver={onDragOver}
                 onNodeClick={interactions.onNodeClick}
                 onPaneClick={interactions.onPaneClick}
-                onNodeContextMenu={onNodeContextMenu} 
+                onNodeContextMenu={onNodeContextMenu}
                 onPaneContextMenu={onPaneContextMenu} // Registrasi event listener di sini
-                onMoveStart={interactions.onMoveStart} 
+                onMoveStart={interactions.onMoveStart}
                 fitView
             >
                 <Controls className="bg-white border-2 border-olive-900 rounded-xs shadow-[2px_2px_0px_rgba(54,69,79,1)]" />
-                <MiniMap nodeStrokeWidth={3} className="border-2 border-olive-900 rounded-xs overflow-hidden shadow-[4px_4px_0px_rgba(54,69,79,1)] bg-olive-50" />
-                <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#cbd5e1" />
+                <MiniMap
+                    nodeStrokeWidth={3}
+                    className="border-2 border-olive-900 rounded-xs overflow-hidden shadow-[4px_4px_0px_rgba(54,69,79,1)] bg-olive-50"
+                />
+                <Background
+                    variant={BackgroundVariant.Dots}
+                    gap={16}
+                    size={1}
+                    color="#cbd5e1"
+                />
             </ReactFlow>
         </div>
     );

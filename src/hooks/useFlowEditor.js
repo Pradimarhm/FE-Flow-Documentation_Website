@@ -37,24 +37,31 @@ export function useFlowEditor(setSelectedNode) {
     const onDrop = useCallback(
         (event) => {
             event.preventDefault();
+            
+            // 1. Tangkap ketiga data yang dilempar oleh menu
             const type = event.dataTransfer.getData('application/reactflow/type');
+            const category = event.dataTransfer.getData('application/reactflow/category'); // TANGKAP INI
             const label = event.dataTransfer.getData('application/reactflow/label');
 
-            if (!type) return;
+            // Validasi: pastikan type dan category tidak kosong
+            if (!type || !category) return;
 
             const position = screenToFlowPosition({
                 x: event.clientX,
                 y: event.clientY,
             });
 
+            // 2. Rakit node dengan struktur data yang benar
             const newNode = {
                 id: getId(),
-                type: 'customApi', 
+                type: type, // Ini akan berisi 'customApi' dari FloatingMenu
                 position,
                 data: { 
                     label: label,
-                    category: type, 
-                    method: type === 'trigger' ? 'POST' : null 
+                    category: category, // Ini yang menentukan warna dan ikon di ApiNode.jsx
+                    description: '',
+                    inputParams: '',
+                    validationRules: ''
                 },
             };
 
@@ -173,4 +180,33 @@ export function useFlowEditor(setSelectedNode) {
         onNodeContextMenu, onPaneContextMenu, // Expose fungsi baru
         actions, interactions
     };
+
+    // const onDrop = useCallback(
+    //     (event) => {
+    //         event.preventDefault();
+    //         const type = event.dataTransfer.getData('application/reactflow/type');
+    //         const label = event.dataTransfer.getData('application/reactflow/label');
+
+    //         if (!type) return;
+
+    //         const position = screenToFlowPosition({
+    //             x: event.clientX,
+    //             y: event.clientY,
+    //         });
+
+    //         const newNode = {
+    //             id: getId(),
+    //             type: 'customApi', 
+    //             position,
+    //             data: { 
+    //                 label: label,
+    //                 category: type, 
+    //                 method: type === 'trigger' ? 'POST' : null 
+    //             },
+    //         };
+
+    //         setNodes((nds) => nds.concat(newNode));
+    //     },
+    //     [screenToFlowPosition, setNodes]
+    // );
 }

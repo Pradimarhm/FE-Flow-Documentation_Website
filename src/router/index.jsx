@@ -6,9 +6,10 @@ import AppLayout from '../components/layouts/appLayout';
 // import CanvasPage from '../pages/canvasPage';
 import CanvasLayout from '../pages/canvas/canvasLayout'
 import FlowListPage from '../pages/flowListPage'
+import Dashboard from '../pages/dashboardPage'
 
 // Import Halaman (Mockup sementara)
-const Dashboard = () => <div className="p-6 bg-white h-full">Konten Dashboard</div>;
+// const Dashboard = () => <div className="p-6 bg-white h-full">Konten Dashboard</div>;
 const CanvasTest = () => <div className="p-6 bg-white h-full">Konten Canvas</div>;
 const Nodes = () => <div className="p-6 bg-white h-full">Daftar Node</div>;
 const ApiTest = () => <div className="p-6 bg-white h-full">API & EndPoints</div>;
