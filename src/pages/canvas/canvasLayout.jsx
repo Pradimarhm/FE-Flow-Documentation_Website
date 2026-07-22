@@ -76,11 +76,11 @@ export default function CanvasLayout() {
                         Execution Logs
                     </div>
                     <button 
-                        className="h-fit w-fit bg-slate-50 flex items-center p-1 justify-between cursor-pointer border-b border-olive-200 hover:bg-olive-100 hover:border-2 hover:border-dashed hover:border-olive-700"
+                        className="h-fit w-fit rounded-xs bg-slate-50 flex items-center p-1 justify-between cursor-pointer border-b border-olive-200 hover:bg-olive-100 hover:border-2 hover:border-dashed hover:border-olive-700"
                         onClick={() => setIsBottomOpen(!isBottomOpen)}
                     >
                         <span className="text-xs text-olive-700 font-medium">{isBottomOpen ? 
-                            <PanelTopOpen size={32}/> : <PanelBottomOpen size={32}/>
+                            <PanelTopOpen size={24}/> : <PanelBottomOpen size={24}/>
                         }</span>
                     </button>
                 </div>
