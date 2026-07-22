@@ -170,7 +170,7 @@ export default function Login() {
                   />
                 </div>
                 <div className="mb-[5px] text-[32px] font-black text-center text-[var(--main-color)]">
-                  Welcome!
+                  Welcome FlowTech!
                 </div>
                 {error && (
                   <div className="bg-[#fee2e2] text-[#dc2626] px-[15px] py-[10px] rounded-lg text-base font-semibold w-full text-center border-2 border-[#dc2626] box-border">
