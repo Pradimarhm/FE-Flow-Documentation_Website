@@ -33,7 +33,7 @@ const router = createBrowserRouter([
                 element: <FlowListPage />,
             },
             {
-                path: '/canvas', // Akan dirender saat user mengakses '/canvas'
+                path: '/flow/canvas', // Akan dirender saat user mengakses '/canvas'
                 element: <CanvasLayout />,
             },
             {

@@ -16,7 +16,7 @@ export default function FlowListPage() {
 
     const handleOpenFlow = (index) => {
         if (index === 0) {
-            navigate('/canvas'); // Sesuaikan rute ini dengan konfigurasi router Anda
+            navigate('/flow/canvas'); // Sesuaikan rute ini dengan konfigurasi router Anda
         } else {
             alert('Dummy flow. Click the first one to test canvas.');
         }
@@ -30,7 +30,7 @@ export default function FlowListPage() {
                     <h1 className="text-4xl font-extrabold text-olive-900 tracking-tight">Flow Projects</h1>
                     <p className="text-olive-600 font-medium mt-1">Manage and document your system architecture.</p>
                 </div>
-                <a href='/canvas' className="flex items-center gap-2 px-4 py-2 rounded-xs bg-olive-500 text-olive-50 font-bold border-2 border-olive-900 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-olive-700 active:translate-y-1 active:shadow-none transition-all">
+                <a href='/flow/canvas' className="flex items-center gap-2 px-4 py-2 rounded-xs bg-olive-500 text-olive-50 font-bold border-2 border-olive-900 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-olive-700 active:translate-y-1 active:shadow-none transition-all">
                     <Plus size={18} /> New Flow
                 </a>
             </div>

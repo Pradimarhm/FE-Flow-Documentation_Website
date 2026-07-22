@@ -4,6 +4,12 @@ import { useAuthStore } from "../store/authStore";
 // Import logo - sesuaikan dengan path logo Anda
 import logo from "../assets/logo_tff.png"; // atau logo.svg
 
+//service
+import { authService } from "../services/authService";
+
+// error popup
+import ErrorPopup from "../components/error/ErrorPopup";
+
 // CSS custom properties (dulu didefinisikan di dalam styled-components)
 // tetap dipakai lewat notasi var(--nama) di className Tailwind (arbitrary value)
 const cssVars = {
@@ -47,24 +53,34 @@ export default function Login() {
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
+  // Tambahan state error detail untuk popup
+  const [errorPopup, setErrorPopup] = useState({ isOpen: false, title: "", message: "", errors: null });
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      if (email !== "test@flowdoc.com" || password !== "password123") {
-        throw new Error("Kredensial tidak valid");
-      }
-      const mockToken = "jwt-token-palsu-123";
-      const mockUser = { name: "Praditya", email: "test@flowdoc.com" };
-
-      login(mockToken, mockUser);
+      // Panggil API Login
+      const response = await authService.login({ email, password });
+      
+      // Response sukses sesuai kontrak: response.data.access_token & response.data.user[cite: 15]
+      const { access_token, user } = response.data;
+      
+      // Simpan ke Zustand Store
+      login(access_token, user);
+      
+      // Arahkan ke dashboard/flow setelah berhasil
+      navigate("/flow"); 
     } catch (err) {
-      setError(
-        err.response?.data?.message || err.message || "Terjadi kesalahan",
-      );
+      // Tangkap error API (baik invalid input maupun Unauthenticated[cite: 15])
+      setErrorPopup({
+        isOpen: true,
+        title: "Gagal Masuk",
+        message: err.message || "Terjadi kesalahan pada sistem.",
+        errors: err.errors || null
+      });
     } finally {
       setIsLoading(false);
     }
@@ -76,17 +92,41 @@ export default function Login() {
     setError(null);
 
     if (password !== confirmPassword) {
-      setError("Password dan Confirm Password tidak sama");
+      setErrorPopup({
+        isOpen: true,
+        title: "Validasi Lokal Gagal",
+        message: "Password dan Confirm Password tidak sama.",
+        errors: { password_confirmation: ["Konfirmasi password tidak cocok."] }
+      });
       setIsLoading(false);
       return;
     }
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log("Registering:", { email, password });
-      alert("Account created! Please login.");
+      // Karena kontrak registrasi memerlukan "name", untuk form awal kamu bisa menyertakan nama default atau menambahkan input Name di form Sign Up.
+      // Di sini kita ambil string sebelum '@' dari email sebagai nama default, atau sediakan input name.
+      const nameFromEmail = email.split('@')[0];
+      const payload = {
+        name: nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1),
+        email: email,
+        password: password,
+        password_confirmation: confirmPassword
+      };
+
+      const response = await authService.register(payload);
+      
+      const { access_token, user } = response.data;
+      
+      // Login otomatis setelah register sukses
+      login(access_token, user);
+      navigate("/flow");
     } catch (err) {
-      setError(err.message || "Registration failed");
+      setErrorPopup({
+        isOpen: true,
+        title: "Gagal Registrasi",
+        message: err.message || "Data registrasi tidak valid.",
+        errors: err.errors || null
+      });
     } finally {
       setIsLoading(false);
     }
@@ -301,6 +341,15 @@ export default function Login() {
           </p>
         </div>
       </footer>
+
+      {/* Komponen Popup Error Neo-Brutalisme */}
+      <ErrorPopup 
+        isOpen={errorPopup.isOpen}
+        onClose={() => setErrorPopup({ ...errorPopup, isOpen: false })}
+        title={errorPopup.title}
+        message={errorPopup.message}
+        errors={errorPopup.errors}
+      />
     </div>
   );
 }
