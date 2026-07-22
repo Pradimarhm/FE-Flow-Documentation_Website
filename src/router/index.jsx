@@ -5,10 +5,12 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import AppLayout from '../components/layouts/appLayout';
 // import CanvasPage from '../pages/canvasPage';
 import CanvasLayout from '../pages/canvas/canvasLayout'
+import FlowListPage from '../pages/flowListPage'
 
 // Import Halaman (Mockup sementara)
 const Dashboard = () => <div className="p-6 bg-white h-full">Konten Dashboard</div>;
 const CanvasTest = () => <div className="p-6 bg-white h-full">Konten Canvas</div>;
+const Nodes = () => <div className="p-6 bg-white h-full">Daftar Node</div>;
 const ApiTest = () => <div className="p-6 bg-white h-full">API & EndPoints</div>;
 const ExecutionLogs = () => <div className="p-6 bg-white h-full">Execution Logs</div>;
 const Login = () => <div className="h-screen w-screen flex items-center justify-center bg-black text-white">Halaman Login (Publik)</div>;
@@ -25,8 +27,16 @@ const router = createBrowserRouter([
                 element: <Dashboard />,
             },
             {
+                path: '/flow', // Akan dirender saat user mengakses '/canvas'
+                element: <FlowListPage />,
+            },
+            {
                 path: '/canvas', // Akan dirender saat user mengakses '/canvas'
                 element: <CanvasLayout />,
+            },
+            {
+                path: '/nodes', // Akan dirender saat user mengakses '/canvas'
+                element: <Nodes />,
             },
             {
                 path: '/api-endpoints', // Akan dirender saat user mengakses '/canvas'

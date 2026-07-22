@@ -1,108 +1,67 @@
-import React, { useCallback, useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
     ReactFlow,
     MiniMap,
     Controls,
     Background,
-    useNodesState,
-    useEdgesState,
-    addEdge,
     BackgroundVariant,
-    useReactFlow, // Wajib dipanggil di dalam ReactFlowProvider
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import FloatingNodeMenu from './floatingNodeMenu'; // Import menu yang baru dibuat
+import FloatingNodeMenu from './floatingNodeMenu';
 import ApiNode from './apiNode';
-
-const initialNodes = [
-    // { id: '1', type: 'input', data: { label: 'POST /api/v1/auth' }, position: { x: 250, y: 50 }, style: { background: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '4px', padding: '10px' } },
-];
-const initialEdges = [];
-
-let id = 2; // Simple ID generator
-const getId = () => `${id++}`;
+import { Copy, CopyPlus, Trash2, ClipboardPaste } from 'lucide-react';
+import { useFlowEditor } from '@/hooks/useFlowEditor'; 
 
 export default function FlowCanvas({ setSelectedNode }) {
-    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-    const { screenToFlowPosition } = useReactFlow(); // Fungsi krusial untuk DND yang akurat
+    const {
+        nodes, edges, onNodesChange, onEdgesChange,
+        onConnect, onDrop, onDragOver,
+        menu, copiedNode, reactFlowWrapper,
+        onNodeContextMenu, onPaneContextMenu, // Tangkap fungsi klik kanan kanvas
+        actions, interactions
+    } = useFlowEditor(setSelectedNode);
 
     const nodeTypes = useMemo(() => ({ customApi: ApiNode }), []);
 
-    const onConnect = useCallback(
-        (params) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
-        [setEdges]
-    );
-
-    // Mencegah default behavior agar browser mengizinkan "drop"
-    const onDragOver = useCallback((event) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-    }, []);
-
-    // Eksekusi saat item dijatuhkan ke kanvas
-    const onDrop = useCallback(
-        (event) => {
-            event.preventDefault();
-
-            const type = event.dataTransfer.getData('application/reactflow/type');
-            const label = event.dataTransfer.getData('application/reactflow/label');
-
-            if (!type) return;
-
-            // if (typeof type === 'undefined' || !type) {
-            //     return;
-            // }
-
-            // Menerjemahkan koordinat layar ke koordinat kanvas
-            const position = screenToFlowPosition({
-                x: event.clientX,
-                y: event.clientY,
-            });
-
-            // Styling dinamis sederhana berdasarkan template
-            let customStyle = { borderRadius: '4px', padding: '10px', fontSize: '12px' };
-            if (type === 'input') customStyle = { ...customStyle, background: '#1e293b', color: '#fff', border: '1px solid #334155' };
-            else if (type === 'output') customStyle = { ...customStyle, background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0' };
-            else customStyle = { ...customStyle, background: '#ffffff', color: '#0f172a', border: '1px solid #e2e8f0' };
-
-            // const newNode = {
-            //     id: getId(),
-            //     type,
-            //     position,
-            //     data: { label: label },
-            //     style: customStyle,
-            // };
-
-            const newNode = {
-                id: getId(),
-                type: 'customApi', // WAJIB SAMA DENGAN NAMA DI useMemo nodeTypes
-                position,
-                data: { 
-                    label: label,
-                    category: type, // Ini yang akan dibaca oleh getTheme() di ApiNode.jsx
-                    method: type === 'trigger' ? 'POST' : null // Contoh data tambahan
-                },
-            };
-
-            setNodes((nds) => nds.concat(newNode));
-        },
-        [screenToFlowPosition, setNodes]
-    );
-
-    const onNodeClick = (event, node) => {
-        setSelectedNode(node); // Kirim data node ke Right Panel
-    };
-
-    const onPaneClick = () => {
-        setSelectedNode(null); // Tutup panel jika klik area kosong
-    };
-
     return (
-        <div className="w-full h-full relative bg-olive-100">
-            {/* Toolbar melayang di atas kanvas */}
+        <div className="w-full h-full relative bg-olive-100" ref={reactFlowWrapper}>
             <FloatingNodeMenu/>
             
+            {/* CONTEXT MENU DINAMIS */}
+            {menu && (
+                <div 
+                    style={{ top: menu.top, left: menu.left }}
+                    className="absolute z-50 bg-olive-50 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] flex flex-col w-40"
+                >
+                    {/* Hanya tampilkan aksi Node jika yang diklik adalah Node */}
+                    {menu.type === 'node' && (
+                        <>
+                            <button onClick={actions.duplicateNode} className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-olive-900 hover:bg-olive-200 border-b-2 border-olive-900 text-left cursor-pointer transition-colors">
+                                <CopyPlus size={14} /> Duplikat
+                            </button>
+                            <button onClick={actions.copyNode} className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-olive-900 hover:bg-olive-200 border-b-2 border-olive-900 text-left cursor-pointer transition-colors">
+                                <Copy size={14} /> Copy
+                            </button>
+                        </>
+                    )}
+
+                    {/* Tombol Paste selalu muncul, tapi bisa di-disable jika clipboard kosong */}
+                    <button 
+                        onClick={actions.pasteNode} 
+                        disabled={!copiedNode} 
+                        className={`flex items-center gap-2 px-3 py-2 text-xs font-bold text-left border-olive-900 transition-colors ${copiedNode ? 'text-olive-900 hover:bg-olive-200 cursor-pointer' : 'text-olive-400 bg-olive-100 cursor-not-allowed opacity-60'} ${menu.type === 'node' ? 'border-b-2' : ''}`}
+                    >
+                        <ClipboardPaste size={14} /> Paste
+                    </button>
+
+                    {menu.type === 'node' && (
+                        <button onClick={actions.deleteNode} className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100 text-left cursor-pointer transition-colors">
+                            <Trash2 size={14} /> Hapus
+                        </button>
+                    )}
+                </div>
+            )}
+
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -112,12 +71,15 @@ export default function FlowCanvas({ setSelectedNode }) {
                 onConnect={onConnect}
                 onDrop={onDrop}
                 onDragOver={onDragOver}
-                onNodeClick={onNodeClick}
-                onPaneClick={onPaneClick}
+                onNodeClick={interactions.onNodeClick}
+                onPaneClick={interactions.onPaneClick}
+                onNodeContextMenu={onNodeContextMenu} 
+                onPaneContextMenu={onPaneContextMenu} // Registrasi event listener di sini
+                onMoveStart={interactions.onMoveStart} 
                 fitView
             >
-                <Controls className="bg-white border border-slate-500 rounded-none" />
-                <MiniMap nodeStrokeWidth={3} className="border border-slate-500 overflow-hidden rounded-none" />
+                <Controls className="bg-white border-2 border-olive-900 rounded-xs shadow-[2px_2px_0px_rgba(54,69,79,1)]" />
+                <MiniMap nodeStrokeWidth={3} className="border-2 border-olive-900 rounded-xs overflow-hidden shadow-[4px_4px_0px_rgba(54,69,79,1)] bg-olive-50" />
                 <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#cbd5e1" />
             </ReactFlow>
         </div>
