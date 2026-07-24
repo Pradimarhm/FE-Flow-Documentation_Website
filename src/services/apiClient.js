@@ -31,12 +31,12 @@ apiClient.interceptors.request.use(
         }
 
         if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+            config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
     },
     (error) => Promise.reject(error)
-    );
+);
 
 // Response Interceptor: Langsung kembalikan response.data
 apiClient.interceptors.response.use(

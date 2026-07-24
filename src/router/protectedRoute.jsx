@@ -6,7 +6,7 @@ export default function ProtectedRoute() {
 
   // Jika tidak punya akses, tendang kembali ke pintu depan
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/auth" replace />;
   }
 
   // Jika aman, persilakan masuk ke layout/komponen anak
