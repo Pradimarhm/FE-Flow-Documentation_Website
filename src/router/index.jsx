@@ -11,6 +11,8 @@ import CanvasLayout from '../pages/canvas/canvasLayout'
 import FlowListPage from '../pages/flowListPage'
 import Dashboard from '../pages/dashboardPage'
 import Login from '../pages/login.jsx'
+import TemplatesPage from '../pages/templatePages'
+// import NodesPage from '../pages/nodePages'
 
 // Import Halaman (Mockup sementara)
 // const Dashboard = () => <div className="p-6 bg-white h-full">Konten Dashboard</div>;
@@ -41,7 +43,7 @@ const ExecutionLogs = () => <div className="p-6 bg-white h-full">Execution Logs<
 //             },
 //             {
 //                 path: '/nodes', // Akan dirender saat user mengakses '/canvas'
-//                 element: <Nodes />,
+//                 element: <NodesPage />,
 //             },
 //             {
 //                 path: '/api-endpoints', // Akan dirender saat user mengakses '/canvas'
@@ -67,10 +69,9 @@ const ExecutionLogs = () => <div className="p-6 bg-white h-full">Execution Logs<
 
 // export default AppRouter;
 
-
 export const router = createBrowserRouter([
     {
-        // Zona Publik (Hanya bisa diakses jika BELUM login)
+        // Zona Publik
         element: <PublicRoute />,
         children: [
             {
@@ -85,7 +86,7 @@ export const router = createBrowserRouter([
         ],
     },
     {
-        // Zona Terlindungi (Hanya bisa diakses jika SUDAH login)
+        // Zona Terlindungi
         element: <ProtectedRoute />,
         children: [
             {
@@ -100,13 +101,17 @@ export const router = createBrowserRouter([
                         path: 'flow',
                         element: <FlowListPage />,
                     },
+                    /* 
+                       ✅ FIX 1: Ubah {id} jadi :flowId
+                       ✅ FIX 2: Sesuaikan path agar match dengan navigate('/flow/123')
+                    */
                     {
-                        path: 'flow/canvas',
+                        path: 'flow/:flowId',
                         element: <CanvasLayout />,
                     },
                     {
-                        path: 'nodes',
-                        element: <Nodes />,
+                        path: 'template',
+                        element: <TemplatesPage />,
                     },
                     {
                         path: 'api-endpoints',
@@ -120,7 +125,7 @@ export const router = createBrowserRouter([
             },
         ],
     },
-    // Fallback: Jika rute tidak ditemukan, lempar ke root (nanti akan difilter oleh guard)
+    // Fallback
     {
         path: '*',
         element: <Login />

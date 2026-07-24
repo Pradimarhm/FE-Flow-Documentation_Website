@@ -1,32 +1,51 @@
+// src/components/rightSidebar.jsx
 import React, { useState, useEffect } from "react";
 import { useReactFlow } from "@xyflow/react";
+import { nodeService } from "@/services/nodeService";
 
-export default function RightSidebar({ selectedNode, setSelectedNode }) {
+export default function RightSidebar({ selectedNode }) {
     const { setNodes } = useReactFlow();
     const [formData, setFormData] = useState({});
-
-    // State baru untuk teater UX penyimpanan
     const [saveStatus, setSaveStatus] = useState("IDLE");
 
     useEffect(() => {
         if (selectedNode) {
             setFormData(selectedNode.data || {});
-            setSaveStatus("IDLE"); // Reset status saat ganti node
+            setSaveStatus("IDLE");
         } else {
             setFormData({});
         }
     }, [selectedNode]);
 
-    // Efek untuk memalsukan proses penyimpanan
+    // AUTO-SAVE DEBOUNCE EFFECT
     useEffect(() => {
-        if (saveStatus === "SAVING") {
-            const timer = setTimeout(() => {
+        if (saveStatus !== "SAVING" || !selectedNode) return;
+
+        const timer = setTimeout(async () => {
+            try {
+                const payload = {
+                    label: formData.label,
+                    type: formData.category || "process", // Kunci di 6 tipe standar
+                    config: {
+                        ...(formData.config || {}),
+                        inputParams: formData.inputParams,
+                        validationRules: formData.validationRules,
+                        description: formData.description
+                    },
+                };
+
+                await nodeService.updateNode(selectedNode.id, payload);
                 setSaveStatus("SAVED");
+
                 setTimeout(() => setSaveStatus("IDLE"), 2000);
-            }, 600); // Jeda 600ms agar terlihat seperti sedang memproses
-            return () => clearTimeout(timer);
-        }
-    }, [saveStatus, formData]);
+            } catch (error) {
+                console.error("Gagal memperbarui node ke backend:", error);
+                setSaveStatus("IDLE");
+            }
+        }, 800);
+
+        return () => clearTimeout(timer);
+    }, [saveStatus, formData, selectedNode]);
 
     if (!selectedNode) {
         return (
@@ -41,19 +60,25 @@ export default function RightSidebar({ selectedNode, setSelectedNode }) {
     const handleInputChange = (field, value) => {
         const newData = { ...formData, [field]: value };
         setFormData(newData);
-        setSaveStatus("SAVING"); // Memicu efek visual
+        setSaveStatus("SAVING");
 
+        // Sync realtime ke React Flow Canvas UI
         setNodes((nds) =>
             nds.map((node) => {
                 if (node.id === selectedNode.id) {
-                    return { ...node, data: newData };
+                    return {
+                        ...node,
+                        data: {
+                            ...node.data,
+                            [field]: value,
+                        },
+                    };
                 }
                 return node;
-            }),
+            })
         );
     };
 
-    // Render badge dinamis
     const renderStatusBadge = () => {
         if (saveStatus === "SAVING")
             return (
@@ -85,11 +110,11 @@ export default function RightSidebar({ selectedNode, setSelectedNode }) {
                         ID: {selectedNode.id}
                     </p>
                 </div>
-                {/* Panggil badge di sini */}
                 {renderStatusBadge()}
             </div>
 
             <div className="p-4 flex flex-col gap-4">
+                {/* Node Label */}
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-olive-900 uppercase">
                         Node Label
@@ -97,22 +122,19 @@ export default function RightSidebar({ selectedNode, setSelectedNode }) {
                     <input
                         type="text"
                         value={formData.label || ""}
-                        onChange={(e) =>
-                            handleInputChange("label", e.target.value)
-                        }
+                        onChange={(e) => handleInputChange("label", e.target.value)}
                         className="p-2 rounded border-2 border-olive-900 bg-white text-sm font-semibold outline-none focus:bg-olive-100 transition-colors"
                     />
                 </div>
 
+                {/* Node Category (Fixed 6 Types) */}
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-olive-900 uppercase">
                         Node Category
                     </label>
                     <select
                         value={formData.category || "process"}
-                        onChange={(e) =>
-                            handleInputChange("category", e.target.value)
-                        }
+                        onChange={(e) => handleInputChange("category", e.target.value)}
                         className="p-2 rounded border-2 border-olive-900 bg-olive-50 text-sm font-semibold outline-none focus:bg-olive-100 cursor-pointer capitalize transition-colors"
                     >
                         <option value="start">Start</option>
@@ -124,33 +146,31 @@ export default function RightSidebar({ selectedNode, setSelectedNode }) {
                     </select>
                 </div>
 
+                {/* Description */}
+                <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-olive-900 uppercase">
+                        Description
+                    </label>
+                    <textarea
+                        rows={2}
+                        value={formData.description || ""}
+                        onChange={(e) => handleInputChange("description", e.target.value)}
+                        className="p-2 rounded border-2 border-olive-900 bg-white text-xs outline-none transition-colors"
+                        placeholder="Deskripsi singkat node..."
+                    />
+                </div>
+
+                {/* Dynamic Inputs berdasarkan Tipe */}
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-olive-900 uppercase">
                         Input Params (JSON)
                     </label>
                     <textarea
                         rows={4}
-                        value={formData.inputParams || ""}
-                        onChange={(e) =>
-                            handleInputChange("inputParams", e.target.value)
-                        }
+                        value={typeof formData.inputParams === 'object' ? JSON.stringify(formData.inputParams, null, 2) : (formData.inputParams || "")}
+                        onChange={(e) => handleInputChange("inputParams", e.target.value)}
                         className="p-2 rounded border-2 border-olive-900 bg-olive-200 text-olive-900 font-mono text-xs outline-none transition-colors"
                         placeholder='{"key": "value"}'
-                    />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                    <label className="text-xs font-bold text-olive-900 uppercase">
-                        Validation Rules
-                    </label>
-                    <textarea
-                        rows={2}
-                        value={formData.validationRules || ""}
-                        onChange={(e) =>
-                            handleInputChange("validationRules", e.target.value)
-                        }
-                        className="p-2 rounded border-2 border-olive-900 bg-white text-sm font-semibold outline-none focus:bg-olive-100 transition-colors"
-                        placeholder="Contoh: origin tidak boleh kosong"
                     />
                 </div>
             </div>

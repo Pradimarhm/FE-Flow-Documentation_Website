@@ -1,26 +1,39 @@
-import apiClient from './apiClient'; // Menggunakan instance axios yang sudah kamu buat
+// authService.js
+import apiClient from './apiClient';
 
 export const authService = {
-    // 1. Registrasi
     async register(userData) {
         try {
-            // userData mencakup: name, email, password, password_confirmation
             const response = await apiClient.post('/auth/register', userData);
-            return response.data; // Mengembalikan struktur data user & access_token
+            return response; 
         } catch (error) {
-            // Melempar error agar bisa ditangkap oleh komponen UI/Popup
-            throw error.response ? error.response.data : { message: "Network Error / Server tidak merespons" };
+            throw error.response ? error.response.data : { message: "Network Error" };
         }
     },
-
-    // 2. Login
     async login(credentials) {
         try {
-            // credentials mencakup: email, password
             const response = await apiClient.post('/auth/login', credentials);
-            return response.data; // Mengembalikan struktur data user & access_token
+            return response; 
         } catch (error) {
-            throw error.response ? error.response.data : { message: "Network Error / Server tidak merespons" };
+            throw error.response ? error.response.data : { message: "Network Error" };
+        }
+    },
+    // Tambahkan ini
+    async logout() {
+        try {
+            const response = await apiClient.post('/auth/logout');
+            return response;
+        } catch (error) {
+             throw error.response ? error.response.data : { message: "Network Error" };
+        }
+    },
+    // Tambahkan ini
+    async getProfile() {
+        try {
+            const response = await apiClient.get('/auth/me');
+            return response;
+        } catch (error) {
+             throw error.response ? error.response.data : { message: "Network Error" };
         }
     }
 };

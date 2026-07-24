@@ -1,18 +1,35 @@
+// src/services/apiClient.js
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore'; 
 
 const apiClient = axios.create({
-    baseURL: 'https://api.flowforge.app/v1', // Sesuaikan URL backend-mu
+    baseURL: 'http://localhost:8000/api',
     headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
     },
+    withCredentials: true,
     timeout: 10000,
 });
 
-// Request Interceptor: Otomatis sisipkan Token di setiap pengiriman request
+// Request Interceptor: Ambil token dari Zustand atau Fallback ke localStorage
 apiClient.interceptors.request.use(
     (config) => {
-        const token = useAuthStore.getState().token;
+        let token = useAuthStore.getState().token;
+        
+        // Fallback jika store Zustand belum selesai rehydrate
+        if (!token) {
+            try {
+                const persisted = localStorage.getItem('auth-storage'); // sesuaikan key Zustand persist lu
+                if (persisted) {
+                    const parsed = JSON.parse(persisted);
+                    token = parsed?.state?.token;
+                }
+            } catch (e) {
+                console.error("Gagal membaca token dari localStorage", e);
+            }
+        }
+
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -21,14 +38,16 @@ apiClient.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Tangkap error global (seperti 401 Unauthorized)
+// Response Interceptor: Langsung kembalikan response.data
 apiClient.interceptors.response.use(
-    (response) => response.data, // Langsung ambil properti .data dari axios
+    (response) => response.data,
     (error) => {
-        // Jika token kedaluwarsa atau tidak valid (401)
         if (error.response && error.response.status === 401) {
-            useAuthStore.getState().logout();
-            window.location.href = '/login';
+            console.error("🔥 ERROR 401 UNAUTHORIZED:", {
+                url: error.config?.url,
+                method: error.config?.method,
+                response: error.response?.data
+            });
         }
         return Promise.reject(error);
     }

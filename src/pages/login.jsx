@@ -72,7 +72,7 @@ export default function Login() {
       login(access_token, user);
       
       // Arahkan ke dashboard/flow setelah berhasil
-      navigate("/flow"); 
+      navigate("/"); 
     } catch (err) {
       // Tangkap error API (baik invalid input maupun Unauthenticated[cite: 15])
       setErrorPopup({
@@ -164,13 +164,76 @@ export default function Login() {
                 {/* Logo di atas Welcome */}
                 <div className="flex justify-center items-center mb-2">
                   <img
-                    src={logo}
+                    src={'./public/images/iconAppNoBg.png'}
                     alt="FlowDoc Logo"
                     className="w-[70px] h-[70px] object-contain rounded-lg border-[3px] border-[var(--main-color)] shadow-[4px_4px_0_var(--main-color)] bg-white p-2"
                   />
                 </div>
                 <div className="mb-[5px] text-[32px] font-black text-center text-[var(--main-color)]">
                   Welcome FlowTech!
+                </div>
+                {error && (
+                  <div className="bg-[#fee2e2] text-[#dc2626] px-[15px] py-[10px] rounded-lg text-base font-semibold w-full text-center border-2 border-[#dc2626] box-border">
+                    {error}
+                  </div>
+                )}
+                <form
+                  className="flex flex-col items-center gap-[26px]"
+                  onSubmit={handleLogin}
+                >
+                  <input
+                    className="w-full h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-[var(--font-color)] px-[15px] pr-[45px] outline-none box-border placeholder:text-[var(--font-color-sub)] placeholder:opacity-80 focus:border-[var(--input-focus)]"
+                    name="email"
+                    placeholder="Email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                  <div className="relative w-[340px]">
+                    <input
+                      className="w-full h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-[var(--font-color)] px-[15px] pr-[45px] outline-none box-border placeholder:text-[var(--font-color-sub)] placeholder:opacity-80 focus:border-[var(--input-focus)]"
+                      name="password"
+                      placeholder="Password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-[var(--font-color-sub)] p-1 flex items-center justify-center opacity-70 transition-opacity duration-200 hover:opacity-100"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <svg viewBox="0 0 24 24" width="20" height="20">
+                          <path
+                            fill="currentColor"
+                            d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
+                          />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" width="20" height="20">
+                          <path
+                            fill="currentColor"
+                            d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <button
+                    className="my-[15px] w-[170px] h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-xl font-semibold text-[var(--font-color)] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed active:shadow-[0px_0px_var(--main-color)] active:translate-x-1 active:translate-y-1"
+                    type="submit"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Loading..." : "Let`s go!"}
+                  </button>
+                </form>
+              </div>
+              <div className="flip-card-face w-full [transform:rotateY(180deg)] p-[35px] absolute flex flex-col justify-center [backface-visibility:hidden] bg-[#f0f0f0] gap-5 rounded-[10px] border-[3px] border-[var(--main-color)] shadow-[8px_8px_var(--main-color)]">
+                <div className="mb-[5px] text-[32px] font-black text-center text-[var(--main-color)]">
+                  Sign up
                 </div>
                 {error && (
                   <div className="bg-[#fee2e2] text-[#dc2626] px-[15px] py-[10px] rounded-lg text-base font-semibold w-full text-center border-2 border-[#dc2626] box-border">
