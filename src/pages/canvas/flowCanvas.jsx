@@ -9,13 +9,14 @@ import {
 import "@xyflow/react/dist/style.css";
 import FloatingNodeMenu from "./floatingNodeMenu";
 import ApiNode from "./apiNode";
-import { Copy, CopyPlus, Trash2, ClipboardPaste } from "lucide-react";
+import { Copy, CopyPlus, Trash2, ClipboardPaste, Loader2 } from "lucide-react";
 import { useFlowEditor } from "@/hooks/useFlowEditor";
 
-export default function FlowCanvas({ setSelectedNode }) {
+export default function FlowCanvas({ flowId, setSelectedNode }) {
     const {
         nodes,
         edges,
+        isLoading,
         onNodesChange,
         onEdgesChange,
         onConnect,
@@ -25,12 +26,21 @@ export default function FlowCanvas({ setSelectedNode }) {
         copiedNode,
         reactFlowWrapper,
         onNodeContextMenu,
-        onPaneContextMenu, // Tangkap fungsi klik kanan kanvas
+        onPaneContextMenu,
         actions,
         interactions,
-    } = useFlowEditor(setSelectedNode);
+    } = useFlowEditor(flowId, setSelectedNode);
 
     const nodeTypes = useMemo(() => ({ customApi: ApiNode }), []);
+
+    if (isLoading) {
+        return (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-olive-100 gap-2 font-bold text-olive-900">
+                <Loader2 size={32} className="animate-spin text-olive-800" />
+                <p className="text-sm">Memuat Node Flow #{flowId}...</p>
+            </div>
+        );
+    }
 
     return (
         <div
@@ -39,13 +49,12 @@ export default function FlowCanvas({ setSelectedNode }) {
         >
             <FloatingNodeMenu />
 
-            {/* CONTEXT MENU DINAMIS */}
+            {/* CONTEXT MENU */}
             {menu && (
                 <div
                     style={{ top: menu.top, left: menu.left }}
                     className="absolute z-50 bg-olive-50 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] flex flex-col w-40"
                 >
-                    {/* Hanya tampilkan aksi Node jika yang diklik adalah Node */}
                     {menu.type === "node" && (
                         <>
                             <button
@@ -63,11 +72,14 @@ export default function FlowCanvas({ setSelectedNode }) {
                         </>
                     )}
 
-                    {/* Tombol Paste selalu muncul, tapi bisa di-disable jika clipboard kosong */}
                     <button
                         onClick={actions.pasteNode}
                         disabled={!copiedNode}
-                        className={`flex items-center gap-2 px-3 py-2 text-xs font-bold text-left border-olive-900 transition-colors ${copiedNode ? "text-olive-900 hover:bg-olive-200 cursor-pointer" : "text-olive-400 bg-olive-100 cursor-not-allowed opacity-60"} ${menu.type === "node" ? "border-b-2" : ""}`}
+                        className={`flex items-center gap-2 px-3 py-2 text-xs font-bold text-left border-olive-900 transition-colors ${
+                            copiedNode
+                                ? "text-olive-900 hover:bg-olive-200 cursor-pointer"
+                                : "text-olive-400 bg-olive-100 cursor-not-allowed opacity-60"
+                        } ${menu.type === "node" ? "border-b-2" : ""}`}
                     >
                         <ClipboardPaste size={14} /> Paste
                     </button>
@@ -95,8 +107,7 @@ export default function FlowCanvas({ setSelectedNode }) {
                 onNodeClick={interactions.onNodeClick}
                 onPaneClick={interactions.onPaneClick}
                 onNodeContextMenu={onNodeContextMenu}
-                onPaneContextMenu={onPaneContextMenu} // Registrasi event listener di sini
-                onMoveStart={interactions.onMoveStart}
+                onPaneContextMenu={onPaneContextMenu}
                 fitView
             >
                 <Controls className="bg-white border-2 border-olive-900 rounded-xs shadow-[2px_2px_0px_rgba(54,69,79,1)]" />
