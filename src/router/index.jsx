@@ -19,7 +19,7 @@ import TemplatesPage from "../pages/templatePages";
 import ForgotPassword from "../pages/forgotPassword";
 import PermissionsPage from "../pages/permissionsPage"; 
 import UsersPage from '../pages/usersPage';
-import ResetPassword from '../pages/ResetPassword';
+import ResetPassword from '../pages/resetPassword';
 import SettingsPage from '../pages/settingsPage';
 
 // Mockup pages
