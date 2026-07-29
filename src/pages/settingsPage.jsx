@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Settings, User, KeyRound, Loader2, Eye, EyeOff, ShieldCheck, Mail } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { authService } from "../services/authService";
-import ErrorPopup from "../components/error/errorPopUp";
+import ErrorPopup from "../components/error/errorPopup";
 
 export default function SettingsPage() {
     const userStore = useAuthStore((state) => state.user);
