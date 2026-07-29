@@ -5,15 +5,18 @@ export const useAuthStore = create(
     persist(
         (set) => ({
             token: null,
-            user: null, // Pastikan ada state user
+            user: null, 
+            permissions: [], // Tambahkan ini
             isAuthenticated: false,
             
-            login: (token, user) => set({ token, user, isAuthenticated: true }),
-            logout: () => set({ token: null, user: null, isAuthenticated: false }),
+            // Ubah fungsi login untuk menerima permissions
+            login: (token, user, permissions) => set({ token, user, permissions, isAuthenticated: true }),
+            logout: () => set({ token: null, user: null, permissions: [], isAuthenticated: false }),
             setUser: (user) => set({ user }),
+            setPermissions: (permissions) => set({ permissions }),
         }),
         {
-        name: 'flowTech-storage', 
+            name: 'flowTech-storage', 
         }
     )
 );

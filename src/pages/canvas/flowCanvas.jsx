@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import {
     ReactFlow,
     MiniMap,
@@ -7,16 +7,27 @@ import {
     BackgroundVariant,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import FloatingNodeMenu from "./floatingNodeMenu";
-import ApiNode from "./apiNode";
+import FloatingNodeMenu from "./FloatingNodeMenu";
+import ApiNode from "./ApiNode";
 import { Copy, CopyPlus, Trash2, ClipboardPaste, Loader2 } from "lucide-react";
 import { useFlowEditor } from "@/hooks/useFlowEditor";
 
-export default function FlowCanvas({ flowId, setSelectedNode }) {
+export default function FlowCanvas({
+    flowId,
+    setSelectedNode,
+    onEditorReady,
+    executionStatus = {},
+    activeEdgeIds = new Set(),
+    completedEdgeIds = new Set(),
+}) {
+    const editor = useFlowEditor(flowId, setSelectedNode);
     const {
         nodes,
         edges,
         isLoading,
+        isSaving,
+        isDirty,
+        lastSavedAt,
         onNodesChange,
         onEdgesChange,
         onConnect,
@@ -26,12 +37,82 @@ export default function FlowCanvas({ flowId, setSelectedNode }) {
         copiedNode,
         reactFlowWrapper,
         onNodeContextMenu,
+        onEdgeContextMenu,
         onPaneContextMenu,
+        saveFlow,
+        markNodeDirty,
+        updateEdgesStatus,
         actions,
         interactions,
-    } = useFlowEditor(flowId, setSelectedNode);
+    } = editor;
+
+    useEffect(() => {
+        onEditorReady?.({
+            isSaving,
+            isDirty,
+            lastSavedAt,
+            saveFlow,
+            markNodeDirty,
+            getEdges: () => edges,
+            getNodes: () => nodes,
+        });
+    }, [
+        onEditorReady,
+        isSaving,
+        isDirty,
+        lastSavedAt,
+        saveFlow,
+        markNodeDirty,
+        edges,
+        nodes,
+    ]);
+
+    useEffect(() => {
+        updateEdgesStatus(activeEdgeIds, completedEdgeIds);
+    }, [activeEdgeIds, completedEdgeIds, updateEdgesStatus]);
 
     const nodeTypes = useMemo(() => ({ customApi: ApiNode }), []);
+
+    const nodesWithStatus = useMemo(() => {
+        return nodes.map((node) => {
+            const status = executionStatus[node.id];
+
+            let borderColor = "";
+            let boxShadow = "";
+            if (status === "running") {
+                borderColor = "#10b981";
+                boxShadow = "0 0 0 0 rgba(16, 185, 129, 0.7)";
+            } else if (status === "success" || status === "completed") {
+                borderColor = "#10b981";
+                boxShadow = "0 0 12px rgba(16, 185, 129, 1)";
+            } else if (status === "failed") {
+                borderColor = "#ef4444";
+                boxShadow = "0 0 12px rgba(239, 68, 68, 1)";
+            }
+
+            return {
+                ...node,
+                data: {
+                    ...node.data,
+                    executionStatus: status,
+                },
+                style: borderColor
+                    ? {
+                          ...node.style,
+                          borderColor,
+                          borderStyle: "solid",
+                          borderWidth: status === "running" ? 3 : 2,
+                          boxShadow,
+                      }
+                    : {
+                          ...node.style,
+                          borderStyle: undefined,
+                          borderWidth: undefined,
+                      },
+                className: status === "running" ? "animate-pulse-ring" : "",
+            };
+        });
+    }, [nodes, executionStatus]);
 
     if (isLoading) {
         return (
@@ -47,56 +128,101 @@ export default function FlowCanvas({ flowId, setSelectedNode }) {
             className="w-full h-full relative bg-olive-100"
             ref={reactFlowWrapper}
         >
+            <style>{`
+                @keyframes pulse-ring {
+                    0% {
+                        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+                    }
+                    70% {
+                        box-shadow: 0 0 0 12px rgba(16, 185, 129, 0);
+                    }
+                    100% {
+                        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+                    }
+                }
+                .animate-pulse-ring {
+                    animation: pulse-ring 1.5s ease-in-out infinite;
+                }
+            `}</style>
+
             <FloatingNodeMenu />
 
-            {/* CONTEXT MENU */}
             {menu && (
                 <div
                     style={{ top: menu.top, left: menu.left }}
-                    className="absolute z-50 bg-olive-50 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] flex flex-col w-40"
+                    className="absolute z-50 bg-olive-50 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] flex flex-col w-44"
+                    onClick={(e) => e.stopPropagation()}
                 >
                     {menu.type === "node" && (
                         <>
                             <button
-                                onClick={actions.duplicateNode}
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    actions.duplicateNode();
+                                }}
                                 className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-olive-900 hover:bg-olive-200 border-b-2 border-olive-900 text-left cursor-pointer transition-colors"
                             >
                                 <CopyPlus size={14} /> Duplikat
                             </button>
                             <button
-                                onClick={actions.copyNode}
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    actions.copyNode();
+                                }}
                                 className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-olive-900 hover:bg-olive-200 border-b-2 border-olive-900 text-left cursor-pointer transition-colors"
                             >
                                 <Copy size={14} /> Copy
                             </button>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    actions.deleteNode();
+                                }}
+                                className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100 text-left cursor-pointer transition-colors"
+                            >
+                                <Trash2 size={14} /> Hapus Node
+                            </button>
                         </>
                     )}
 
-                    <button
-                        onClick={actions.pasteNode}
-                        disabled={!copiedNode}
-                        className={`flex items-center gap-2 px-3 py-2 text-xs font-bold text-left border-olive-900 transition-colors ${
-                            copiedNode
-                                ? "text-olive-900 hover:bg-olive-200 cursor-pointer"
-                                : "text-olive-400 bg-olive-100 cursor-not-allowed opacity-60"
-                        } ${menu.type === "node" ? "border-b-2" : ""}`}
-                    >
-                        <ClipboardPaste size={14} /> Paste
-                    </button>
-
-                    {menu.type === "node" && (
+                    {menu.type === "edge" && (
                         <button
-                            onClick={actions.deleteNode}
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                actions.deleteEdge();
+                            }}
                             className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100 text-left cursor-pointer transition-colors"
                         >
-                            <Trash2 size={14} /> Hapus
+                            <Trash2 size={14} /> Hapus Koneksi
+                        </button>
+                    )}
+
+                    {menu.type === "pane" && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                actions.pasteNode();
+                            }}
+                            disabled={!copiedNode}
+                            className={`flex items-center gap-2 px-3 py-2 text-xs font-bold text-left border-olive-900 transition-colors ${
+                                copiedNode
+                                    ? "text-olive-900 hover:bg-olive-200 cursor-pointer"
+                                    : "text-olive-400 bg-olive-100 cursor-not-allowed opacity-60"
+                            }`}
+                        >
+                            <ClipboardPaste size={14} /> Paste
                         </button>
                     )}
                 </div>
             )}
 
             <ReactFlow
-                nodes={nodes}
+                nodes={nodesWithStatus}
                 edges={edges}
                 nodeTypes={nodeTypes}
                 onNodesChange={onNodesChange}
@@ -107,7 +233,10 @@ export default function FlowCanvas({ flowId, setSelectedNode }) {
                 onNodeClick={interactions.onNodeClick}
                 onPaneClick={interactions.onPaneClick}
                 onNodeContextMenu={onNodeContextMenu}
+                onEdgeContextMenu={onEdgeContextMenu}
                 onPaneContextMenu={onPaneContextMenu}
+                edgesFocusable={true}
+                edgesUpdatable={true}
                 fitView
             >
                 <Controls className="bg-white border-2 border-olive-900 rounded-xs shadow-[2px_2px_0px_rgba(54,69,79,1)]" />
