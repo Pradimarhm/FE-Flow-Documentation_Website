@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 // Import logo - sesuaikan dengan path logo Anda
 // import logo from "../assets/logo_tff.png"; // atau logo.svg
+import logoApp from "../assets/logo_tff.png";
 
 //service
 import { authService } from "../services/authService";
@@ -228,7 +229,7 @@ export default function Login() {
                                 {/* Logo di atas Welcome */}
                                 <div className="flex justify-center items-center mb-2">
                                     <img
-                                        src={"./public/images/iconAppNoBg.png"}
+                                        src={logoApp}
                                         alt="FlowDoc Logo"
                                         className="w-[70px] h-[70px] object-contain rounded-lg border-[3px] border-[var(--main-color)] shadow-[4px_4px_0_var(--main-color)] bg-white p-2"
                                     />
