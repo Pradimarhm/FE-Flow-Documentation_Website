@@ -7,8 +7,8 @@ import {
     BackgroundVariant,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import FloatingNodeMenu from "./FloatingNodeMenu";
-import ApiNode from "./ApiNode";
+import FloatingNodeMenu from "./floatingNodeMenu";
+import ApiNode from "./apiNode";
 import { Copy, CopyPlus, Trash2, ClipboardPaste, Loader2 } from "lucide-react";
 import { useFlowEditor } from "@/hooks/useFlowEditor";
 

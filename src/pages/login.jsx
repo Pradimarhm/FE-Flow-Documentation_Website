@@ -10,7 +10,7 @@ import { userService } from "../services/userService";
 import { useAuthStore } from "../store/authStore";
 
 // error popup
-import ErrorPopup from "../components/error/errorPopup";
+import ErrorPopup from "../components/error/errorPopUp";
 
 // CSS custom properties (dulu didefinisikan di dalam styled-components)
 // tetap dipakai lewat notasi var(--nama) di className Tailwind (arbitrary value)

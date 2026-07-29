@@ -167,7 +167,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo_tff.png";
 import { authService } from "../services/authService";
-import ErrorPopup from "../components/error/ErrorPopup";
+import ErrorPopup from "../components/error/ErrorPopUp";
 
 const cssVars = {
   "--input-focus": "#2d8cf0",
