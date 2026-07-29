@@ -2,14 +2,16 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore'; 
 
+const BASE_URL = import.meta.env.VITE_BASE_API_URL
+
 const apiClient = axios.create({
-    baseURL: 'http://localhost:8000/api',
+    baseURL: BASE_URL,
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
     },
     withCredentials: true,
-    timeout: 10000,
+    timeout: 20000,
 });
 
 // Request Interceptor: Ambil token dari Zustand atau Fallback ke localStorage
@@ -32,11 +34,13 @@ apiClient.interceptors.request.use(
 
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            // config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
     },
     (error) => Promise.reject(error)
 );
+
 
 // Response Interceptor: Langsung kembalikan response.data
 apiClient.interceptors.response.use(

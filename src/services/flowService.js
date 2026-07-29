@@ -1,49 +1,36 @@
-import apiClient from './apiClient';
+import apiClient from "./apiClient";
 
 export const flowService = {
-    /**
-     * Mengambil daftar semua flow (dengan paginasi)
-     * @param {Object} params - { page: 1, per_page: 15 }
-     */
-    getFlows: async (params = {}) => {
-        const response = await apiClient.get('/flows', { params });
-        return response.data;
-    },
+    // Flows CRUD
+    getFlows: () => apiClient.get("/flows"),
+    getFlowById: (id) => apiClient.get(`/flows/${id}`),
+    createFlow: (payload) => apiClient.post("/flows", payload),
+    updateFlow: (id, payload) => apiClient.put(`/flows/${id}`, payload),
+    deleteFlow: (id) => apiClient.delete(`/flows/${id}`),
 
-    /**
-     * Mengambil detail 1 flow berdasarkan ID
-     * @param {string|number} flowId 
-     */
-    getFlowById: async (flowId) => {
-        const response = await apiClient.get(`/flows/${flowId}`);
-        return response.data;
-    },
+    // Flow Nodes
+    getNodesByFlow: (flowId) => apiClient.get(`/flows/${flowId}/nodes`),
+    createNodeInFlow: (flowId, payload) =>
+        apiClient.post(`/flows/${flowId}/nodes`, payload),
 
-    /**
-     * Membuat flow baru
-     * @param {Object} payload - { name, description, status }
-     */
-    createFlow: async (payload) => {
-        const response = await apiClient.post('/flows', payload);
-        return response.data;
-    },
+    // Flow Connections
+    getConnectionsByFlow: (flowId) =>
+        apiClient.get(`/flows/${flowId}/connections`),
+    createConnectionInFlow: (flowId, payload) =>
+        apiClient.post(`/flows/${flowId}/connections`, payload),
 
-    /**
-     * Memperbarui data flow
-     * @param {string|number} flowId 
-     * @param {Object} payload - { name, description, status }
-     */
-    updateFlow: async (flowId, payload) => {
-        const response = await apiClient.put(`/flows/${flowId}`, payload);
-        return response.data;
-    },
+    // Simulations
+    runSimulation: (flowId, inputData = {}) =>
+        apiClient.post(`/flows/${flowId}/simulations`, {
+            status: "pending", // atau "running"
+            started_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(), // opsional
+            input_data: inputData,
+            total_duration_ms: 0,
+        }),
+    getSimulationsByFlow: (flowId) =>
+        apiClient.get(`/flows/${flowId}/simulations`),
 
-    /**
-     * Menghapus flow berdasarkan ID
-     * @param {string|number} flowId 
-     */
-    deleteFlow: async (flowId) => {
-        const response = await apiClient.delete(`/flows/${flowId}`);
-        return response.data;
-    }
+    getSimulationById: (simulationId) =>
+        apiClient.get(`/simulations/${simulationId}`),
 };
