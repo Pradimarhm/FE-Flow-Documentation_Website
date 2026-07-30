@@ -11,7 +11,7 @@ const apiClient = axios.create({
         'Accept': 'application/json',
     },
     withCredentials: true,
-    timeout: 20000,
+    timeout: 30000,
 });
 
 // Request Interceptor: Ambil token dari Zustand atau Fallback ke localStorage
