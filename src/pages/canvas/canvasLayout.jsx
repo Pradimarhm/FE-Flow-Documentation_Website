@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
@@ -127,6 +126,7 @@ export default function CanvasLayout() {
             indegree.set(n.id, 0);
             outgoing.set(n.id, []);
         });
+
         edgesSnapshot.forEach((e) => {
             if (!outgoing.has(e.source)) outgoing.set(e.source, []);
             if (!indegree.has(e.target)) indegree.set(e.target, 0);
@@ -134,9 +134,6 @@ export default function CanvasLayout() {
             indegree.set(e.target, (indegree.get(e.target) || 0) + 1);
         });
 
-        // Titik mulai: node kategori "start" diprioritaskan, lalu node lain
-        // yang memang tidak punya edge masuk, diurutkan dari paling atas
-        // (posisi Y terkecil) supaya urutannya masuk akal secara visual.
         const initialQueue = nodesSnapshot
             .filter((n) => (indegree.get(n.id) || 0) === 0)
             .sort((a, b) => {
@@ -157,7 +154,36 @@ export default function CanvasLayout() {
             visited.add(node.id);
             order.push(node);
 
-            for (const edge of outgoing.get(node.id) || []) {
+            const category = (
+                node.data?.category ||
+                node.data?.type ||
+                ""
+            ).toLowerCase();
+            let edgesToFollow = outgoing.get(node.id) || [];
+
+            // -------------------------------------------------------------
+            // LOGIKA BARU: FILTER KHUSUS NODE CONDITION
+            // -------------------------------------------------------------
+            if (category === "condition" && edgesToFollow.length > 0) {
+                // Cari edge yang label-nya 'true'
+                const trueEdge = edgesToFollow.find(
+                    (e) =>
+                        String(e.label || "")
+                            .toLowerCase()
+                            .trim() === "true",
+                );
+
+                if (trueEdge) {
+                    // Jika ketemu cabang true, HANYA lewati jalur true!
+                    edgesToFollow = [trueEdge];
+                } else {
+                    // Fallback: Jika user belum set label 'true' di edge manapun,
+                    // ambil edge pertama saja agar tidak jalan dua-duanya.
+                    edgesToFollow = [edgesToFollow[0]];
+                }
+            }
+
+            for (const edge of edgesToFollow) {
                 const targetId = edge.target;
                 const remaining = (remainingIndegree.get(targetId) || 0) - 1;
                 remainingIndegree.set(targetId, remaining);
@@ -170,13 +196,8 @@ export default function CanvasLayout() {
             }
         }
 
-        // Node yang tidak kesentuh traversal (terputus dari Start, atau
-        // bagian dari cycle) tetap dimasukkan di akhir supaya tidak "hilang"
-        // dari simulasi -- lebih baik terlihat aneh urutannya daripada
-        // node-nya sama sekali tidak dianimasikan.
-        for (const node of nodesSnapshot) {
-            if (!visited.has(node.id)) order.push(node);
-        }
+        // CATATAN: Bagian loop di bawah ini (node terputus/unvisited) DIBUANG
+        // agar node di cabang "false" BENAR-BENAR MATI (tidak diikutkan dianimasikan).
 
         const baseTime = Date.now();
         return order.map((node, idx) => ({
@@ -234,7 +255,7 @@ export default function CanvasLayout() {
             return;
         }
 
-        const STEP_DELAY_MS = 1500; 
+        const STEP_DELAY_MS = 1500;
         let prevNodeId = null;
         let prevExecutedAt = null;
 
@@ -257,8 +278,13 @@ export default function CanvasLayout() {
 
             // 1) Tandai node ini "running" + edge menuju kesini "traveling"
             setExecutionStatus((prev) => ({ ...prev, [nodeId]: "running" }));
+            // if (incomingEdge) {
+            //     setActiveEdgeIds(new Set([incomingEdge.id]));
+            // }
+
+            // 1) Set active edge
             if (incomingEdge) {
-                setActiveEdgeIds(new Set([incomingEdge.id]));
+                setActiveEdgeIds(new Set([incomingEdge.id])); // Ini membuang activeEdge sebelumnya, OK
             }
 
             pushLog({
@@ -289,10 +315,10 @@ export default function CanvasLayout() {
             const durationMs =
                 prevExecutedAt && exec.executed_at
                     ? Math.max(
-                            0,
-                            new Date(exec.executed_at).getTime() -
-                                new Date(prevExecutedAt).getTime(),
-                        )
+                          0,
+                          new Date(exec.executed_at).getTime() -
+                              new Date(prevExecutedAt).getTime(),
+                      )
                     : null;
 
             pushLog({

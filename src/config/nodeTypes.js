@@ -1,5 +1,5 @@
 // src/config/nodeTypes.js
-import { Play, Square, Settings2, CheckCircle2, Database, Webhook } from "lucide-react";
+import { Play, Square, Settings2, CheckCircle2, Database, Webhook, GitFork } from "lucide-react";
 
 export const NODE_TYPE_CONFIG = {
     start: {
@@ -9,6 +9,14 @@ export const NODE_TYPE_CONFIG = {
         border: "border-black",
         text: "text-black",
         icon: Play,
+    },
+    condition: {
+        label: "Condition",
+        bg: "bg-orange-100",
+        badgeColor: "bg-orange-300",
+        border: "border-black",
+        text: "text-orange-950",
+        icon: GitFork,
     },
     process: {
         label: "Process",
@@ -49,5 +57,27 @@ export const NODE_TYPE_CONFIG = {
         border: "border-black",
         text: "text-black",
         icon: Square,
+    },
+};
+
+// Konfigurasi warna & style garis koneksi (Edge) berdasarkan cabang
+export const EDGE_BRANCH_CONFIG = {
+    true: {
+        stroke: "#10B981", // Hijau Emerald
+        strokeWidth: 3,
+        labelBg: "#A7F3D0", // Emerald 200
+        labelText: "#064E3B",
+    },
+    false: {
+        stroke: "#F43F5E", // Merah Rose
+        strokeWidth: 3,
+        labelBg: "#FECDD3", // Rose 200
+        labelText: "#881337",
+    },
+    default: {
+        stroke: "#36454F", // Charcoal / Slate
+        strokeWidth: 2.5,
+        labelBg: "#E2E8F0", // Slate 200
+        labelText: "#0F172A",
     },
 };

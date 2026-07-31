@@ -1,11 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useTemplateStore } from "@/store/templateStore";
 import { Loader2, GripVertical, Plus, X, RefreshCcw } from "lucide-react";
+import { useReactFlow } from "@xyflow/react"; // 1. Import useReactFlow
 
-// Basic Nodes — isi config-nya SAMA BENTUKNYA dengan template dari backend
-// (inputParams / validationRules / processLogic / outputTemplate), supaya
-// ApiNode & RightSidebar selalu menerima struktur data yang konsisten baik
-// node berasal dari "Basic Nodes" maupun dari "Saved Templates".
 const BASIC_NODES = [
     {
         label: "Start Node",
@@ -16,6 +13,17 @@ const BASIC_NODES = [
             validationRules: "",
             processLogic: "// Titik awal alur, tidak memproses data",
             outputTemplate: {},
+        },
+    },
+    {
+        label: "Condition Node",
+        category: "condition",
+        color: "bg-indigo-100",
+        config: {
+            inputParams: { variable: "" },
+            validationRules: "variable == true",
+            processLogic: "// Evaluasi kondisi boolean (True / False)",
+            outputTemplate: { branch: "true" },
         },
     },
     {
@@ -75,15 +83,20 @@ const BASIC_NODES = [
     },
 ];
 
-export default function FloatingNodeMenu() {
+export default function FloatingNodeMenu({ onAddNode }) {
     const [isOpen, setIsOpen] = useState(true);
 
-    // Template diambil dari cache (memory + IndexedDB), BUKAN call API
-    // langsung di komponen ini. fetchTemplates() sendiri sudah pintar:
-    // kalau data masih segar, tidak ada request sama sekali; kalau data
-    // ada tapi basi, dipakai dulu sambil di-refresh di belakang layar.
+    // Cuma butuh screenToFlowPosition buat hitung posisi klik -> koordinat
+    // canvas. Penambahan node SEBENARNYA (setNodes + tracking dirty) sudah
+    // didelegasikan ke useFlowEditor lewat prop onAddNode, supaya node yang
+    // ditambah lewat klik ikut ter-track dan benar-benar tersimpan ke
+    // backend saat "Simpan Flow" (lihat useFlowEditor.addNodeAtPosition).
+    const { screenToFlowPosition } = useReactFlow();
+
     const templates = useTemplateStore((s) => s.templates);
-    const isLoading = useTemplateStore((s) => s.isLoading && s.templates.length === 0);
+    const isLoading = useTemplateStore(
+        (s) => s.isLoading && s.templates.length === 0,
+    );
     const fetchTemplates = useTemplateStore((s) => s.fetchTemplates);
     const hydrateFromCache = useTemplateStore((s) => s.hydrateFromCache);
 
@@ -91,39 +104,73 @@ export default function FloatingNodeMenu() {
         hydrateFromCache().then(() => fetchTemplates());
     }, [hydrateFromCache, fetchTemplates]);
 
+    // Helper untuk membentuk data/payload node
+    const createNodePayload = (nodeItem, isTemplate = false) => {
+        return isTemplate
+            ? {
+                  template_id: nodeItem.id,
+                  type: nodeItem.node_type,
+                  label: nodeItem.name,
+                  color: nodeItem.color || null,
+                  icon: nodeItem.icon || null,
+                  config: {
+                      inputParams: nodeItem.default_input_params || {},
+                      validationRules: nodeItem.default_validation || "",
+                      processLogic: nodeItem.default_process_logic || "",
+                      outputTemplate: nodeItem.default_output_template || {},
+                      description: nodeItem.description || "",
+                  },
+              }
+            : {
+                  template_id: null,
+                  type: nodeItem.category,
+                  label: nodeItem.label,
+                  color: null,
+                  icon: null,
+                  config: nodeItem.config,
+              };
+    };
+
     const onDragStart = (event, nodeItem, isTemplate = false) => {
         event.dataTransfer.setData("application/reactflow/type", "customApi");
-
-        const nodePayload = isTemplate
-            ? {
-                    template_id: nodeItem.id,
-                    type: nodeItem.node_type,
-                    label: nodeItem.name,
-                    color: nodeItem.color || null,
-                    icon: nodeItem.icon || null,
-                    config: {
-                        inputParams: nodeItem.default_input_params || {},
-                        validationRules: nodeItem.default_validation || "",
-                        processLogic: nodeItem.default_process_logic || "",
-                        outputTemplate: nodeItem.default_output_template || {},
-                        description: nodeItem.description || "",
-                    },
-                }
-            : {
-                    template_id: null,
-                    type: nodeItem.category,
-                    label: nodeItem.label,
-                    color: null,
-                    icon: null,
-                    config: nodeItem.config,
-                };
-
-        event.dataTransfer.setData("application/reactflow/nodeData", JSON.stringify(nodePayload));
+        const nodePayload = createNodePayload(nodeItem, isTemplate);
+        event.dataTransfer.setData(
+            "application/reactflow/nodeData",
+            JSON.stringify(nodePayload),
+        );
         event.dataTransfer.effectAllowed = "move";
     };
 
-    // Menu tertutup -> hanya tombol bulat "+" (hemat ruang canvas, cocok
-    // dipakai berkali-kali / banyak node ke depannya -> lebih scalable)
+    // Tambah node langsung ke tengah layar via klik. Payload dibentuk di
+    // sini (sama seperti sebelumnya), tapi PENAMBAHAN node ke canvas +
+    // pencatatan dirty state sekarang didelegasikan sepenuhnya ke
+    // useFlowEditor.addNodeAtPosition lewat prop onAddNode, supaya
+    // konsisten dengan alur drag & drop (onDrop) dan benar-benar
+    // terkirim ke backend saat "Simpan Flow".
+    const handleAddNodeByClick = (nodeItem, isTemplate = false) => {
+        if (!onAddNode) {
+            console.warn(
+                "[FloatingNodeMenu] onAddNode belum di-pass dari FlowCanvas, node tidak akan tersimpan ke backend.",
+            );
+            return;
+        }
+
+        // Ambil titik tengah layar browser
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+
+        // Konversi koordinat layar ke koordinat canvas Flow
+        const position = screenToFlowPosition({ x: centerX, y: centerY });
+
+        const nodePayload = createNodePayload(nodeItem, isTemplate);
+
+        // buildNodeContent (dipanggil di dalam addNodeAtPosition) menerima
+        // payload dengan bentuk { label, category/type, template_id, config }
+        // -- sudah persis sama dengan nodePayload di sini, jadi tinggal
+        // diteruskan apa adanya.
+        onAddNode(nodePayload, position);
+    };
+
     if (!isOpen) {
         return (
             <button
@@ -139,7 +186,6 @@ export default function FloatingNodeMenu() {
 
     return (
         <div className="absolute top-4 left-4 z-10 bg-olive-50 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] flex flex-col w-56 max-h-[80vh]">
-            {/* Header + tombol tutup */}
             <div className="flex items-center justify-between px-3 py-2 border-b-2 border-olive-900 bg-olive-200">
                 <span className="text-[11px] font-black text-olive-900 uppercase tracking-wider">
                     Tambah Node
@@ -166,16 +212,22 @@ export default function FloatingNodeMenu() {
                                 key={`basic-${index}`}
                                 draggable={true}
                                 onDragStart={(e) => onDragStart(e, node, false)}
-                                className={`flex items-center justify-between p-1.5 border-2 border-olive-900 shadow-[2px_2px_0px_rgba(54,69,79,1)] cursor-grab active:cursor-grabbing hover:opacity-80 transition-all text-xs font-bold text-olive-900 ${node.color}`}
+                                onClick={() =>
+                                    handleAddNodeByClick(node, false)
+                                } // <-- Klik Tambah Node
+                                className={`flex items-center justify-between p-1.5 border-2 border-olive-900 shadow-[2px_2px_0px_rgba(54,69,79,1)] cursor-pointer hover:opacity-80 transition-all text-xs font-bold text-olive-900 ${node.color}`}
                             >
                                 <span className="capitalize">{node.label}</span>
-                                <GripVertical size={14} className="text-olive-700" />
+                                <GripVertical
+                                    size={14}
+                                    className="text-olive-700 cursor-grab active:cursor-grabbing"
+                                />
                             </div>
                         ))}
                     </div>
                 </div>
 
-                {/* 2. TEMPLATES DARI BACKEND (via cache) */}
+                {/* 2. TEMPLATES DARI BACKEND */}
                 <div>
                     <div className="flex items-center justify-between border-b-2 border-olive-900 pb-1 mb-2">
                         <h3 className="text-[11px] font-black text-olive-900 uppercase tracking-wider">
@@ -194,21 +246,35 @@ export default function FloatingNodeMenu() {
                     {isLoading ? (
                         <div className="flex items-center gap-2 text-olive-600 py-1">
                             <Loader2 size={14} className="animate-spin" />
-                            <span className="text-[11px] font-semibold">Loading...</span>
+                            <span className="text-[11px] font-semibold">
+                                Loading...
+                            </span>
                         </div>
                     ) : templates.length === 0 ? (
-                        <p className="text-[11px] text-olive-500 italic py-1">Belum ada template.</p>
+                        <p className="text-[11px] text-olive-500 italic py-1">
+                            Belum ada template.
+                        </p>
                     ) : (
                         <div className="flex flex-col gap-1.5">
                             {templates.map((tpl) => (
                                 <div
                                     key={tpl.id}
                                     draggable={true}
-                                    onDragStart={(e) => onDragStart(e, tpl, true)}
-                                    className="flex items-center justify-between p-1.5 bg-white border-2 border-olive-900 shadow-[2px_2px_0px_rgba(54,69,79,1)] cursor-grab active:cursor-grabbing hover:bg-olive-100 transition-all text-xs font-bold text-olive-900"
+                                    onDragStart={(e) =>
+                                        onDragStart(e, tpl, true)
+                                    }
+                                    onClick={() =>
+                                        handleAddNodeByClick(tpl, true)
+                                    } // <-- Klik Tambah Template
+                                    className="flex items-center justify-between p-1.5 bg-white border-2 border-olive-900 shadow-[2px_2px_0px_rgba(54,69,79,1)] cursor-pointer hover:bg-olive-100 transition-all text-xs font-bold text-olive-900"
                                 >
-                                    <span className="truncate max-w-32.5">{tpl.name || tpl.label}</span>
-                                    <GripVertical size={14} className="text-olive-500" />
+                                    <span className="truncate max-w-32.5">
+                                        {tpl.name || tpl.label}
+                                    </span>
+                                    <GripVertical
+                                        size={14}
+                                        className="text-olive-500 cursor-grab active:cursor-grabbing"
+                                    />
                                 </div>
                             ))}
                         </div>

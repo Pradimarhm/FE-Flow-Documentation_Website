@@ -33,6 +33,7 @@ export default function FlowCanvas({
         onConnect,
         onDrop,
         onDragOver,
+        addNodeAtPosition,
         menu,
         copiedNode,
         reactFlowWrapper,
@@ -145,7 +146,7 @@ export default function FlowCanvas({
                 }
             `}</style>
 
-            <FloatingNodeMenu />
+            <FloatingNodeMenu onAddNode={addNodeAtPosition} />
 
             {menu && (
                 <div
@@ -189,6 +190,53 @@ export default function FlowCanvas({
                     )}
 
                     {menu.type === "edge" && (
+                        <>
+                            <div className="px-3 py-1 bg-olive-200 text-[10px] font-black uppercase text-olive-800 border-b-2 border-olive-900">
+                                Cabang Condition
+                            </div>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    actions.updateEdgeLabel(
+                                        menu.edgeId,
+                                        "true",
+                                    );
+                                    actions.closeMenu?.() || setMenu(null);
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 border-b border-olive-200 text-left cursor-pointer"
+                            >
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                Set cabang "TRUE"
+                            </button>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    actions.updateEdgeLabel(
+                                        menu.edgeId,
+                                        "false",
+                                    );
+                                    actions.closeMenu?.() || setMenu(null);
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 border-b-2 border-olive-900 text-left cursor-pointer"
+                            >
+                                <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                                Set cabang "FALSE"
+                            </button>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    actions.deleteEdge();
+                                }}
+                                className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100 text-left cursor-pointer transition-colors"
+                            >
+                                <Trash2 size={14} /> Hapus Koneksi
+                            </button>
+                        </>
+                    )}
+                    {/* {menu.type === "edge" && (
                         <button
                             type="button"
                             onClick={(e) => {
@@ -199,7 +247,7 @@ export default function FlowCanvas({
                         >
                             <Trash2 size={14} /> Hapus Koneksi
                         </button>
-                    )}
+                    )} */}
 
                     {menu.type === "pane" && (
                         <button

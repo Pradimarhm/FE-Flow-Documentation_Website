@@ -8,9 +8,12 @@ import {
 import { nodeService } from "@/services/nodeService";
 import { connectionService } from "@/services/connectionService";
 import { canvasDraftStore } from "@/store/flowStore";
+import { EDGE_BRANCH_CONFIG } from "@/config/nodeTypes";
 
 const genTempId = (prefix) =>
     `temp_${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+const isTempId = (id) => String(id).startsWith("temp_");
 
 const BASIC_NODE_DEFAULT_CONFIG = {
     start: {
@@ -42,6 +45,12 @@ const BASIC_NODE_DEFAULT_CONFIG = {
         validationRules: "url != null",
         processLogic: "// Kirim request API ke endpoint eksternal",
         outputTemplate: { status: 200, body: {} },
+    },
+    condition: {
+        inputParams: { variable: "" },
+        validationRules: "variable == true",
+        processLogic: "// Evaluasi kondisi boolean (True / False)",
+        outputTemplate: { branch: "true" },
     },
     end: {
         inputParams: {},
@@ -114,7 +123,6 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
     });
 
     const extractData = (res) => res?.data || res;
-    const isTempId = (id) => String(id).startsWith("temp_");
 
     const markDirty = useCallback(() => {
         setIsDirty(true);
@@ -137,25 +145,30 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
         [flowId],
     );
 
+    const getEdgeStyleByLabel = (label) => {
+        const cleanLabel = String(label || "")
+            .toLowerCase()
+            .trim();
+        if (cleanLabel === "true") return EDGE_BRANCH_CONFIG.true;
+        if (cleanLabel === "false") return EDGE_BRANCH_CONFIG.false;
+        return EDGE_BRANCH_CONFIG.default;
+    };
+
     // -----------------------------------------------------------------
     // LOAD DATA
     // -----------------------------------------------------------------
     useEffect(() => {
         if (!flowId) return;
+        let ignore = false;
 
         const loadFlowData = async () => {
             try {
                 setIsLoading(true);
 
                 const draft = await canvasDraftStore.load(flowId);
+                if (ignore) return;
+
                 if (draft?.nodes?.length) {
-                    dirtyRef.current = {
-                        newNodeIds: new Set(draft.newNodeIds || []),
-                        updatedNodeIds: new Set(draft.updatedNodeIds || []),
-                        deletedNodeIds: new Set(draft.deletedNodeIds || []),
-                        newEdgeIds: new Set(draft.newEdgeIds || []),
-                        deletedEdgeIds: new Set(draft.deletedEdgeIds || []),
-                    };
                     setNodes(draft.nodes);
                     setEdges(draft.edges || []);
                     setIsDirty(true);
@@ -167,74 +180,77 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
                     nodeService.getNodesByFlow(flowId),
                     connectionService.getConnectionsByFlow(flowId),
                 ]);
+                if (ignore) return;
 
-                const rawNodes = extractData(nodesRes) || [];
-                const rawConns = extractData(connRes) || [];
+                const loadedNodes = extractData(nodesRes) || [];
+                const loadedConns = extractData(connRes) || [];
 
-                const formattedNodes = Array.isArray(rawNodes)
-                    ? rawNodes.map((item) => ({
-                          id: String(item.id),
-                          type: "customApi",
-                          position: {
-                              x: Number(item.pos_x ?? item.position_x) || 0,
-                              y: Number(item.pos_y ?? item.position_y) || 0,
-                          },
-                          data: buildNodeContent({
-                              label: item.label,
-                              category: item.node_type || item.type,
-                              template_id: item.template_id,
-                              config: {
-                                  inputParams:
-                                      item.input_params ??
-                                      item.config?.inputParams,
-                                  validationRules:
-                                      item.validation_rules ??
-                                      item.config?.validationRules,
-                                  processLogic:
-                                      item.process_logic ??
-                                      item.config?.processLogic,
-                                  outputTemplate:
-                                      item.output_template ??
-                                      item.config?.outputTemplate,
-                                  description: item.config?.description,
-                              },
-                          }),
-                      }))
-                    : [];
+                setNodes(
+                    loadedNodes.map((n) => ({
+                        id: String(n.id),
+                        type: "customApi",
+                        position: { x: n.pos_x, y: n.pos_y },
+                        data: {
+                            label: n.label,
+                            category: n.node_type,
+                            template_id: n.template_id,
+                            config: {
+                                inputParams: n.input_params || {},
+                                validationRules: n.validation_rules || "",
+                                processLogic: n.process_logic || "",
+                                outputTemplate: n.output_template || {},
+                            },
+                        },
+                    })),
+                );
 
-                const formattedEdges = Array.isArray(rawConns)
-                    ? rawConns.map((conn) => ({
-                          id: String(conn.id),
-                          source: String(conn.source_node_id),
-                          target: String(conn.target_node_id),
-                          label: conn.branch_label || conn.label || "",
-                          type: "smoothstep",
-                          pathOptions: { borderRadius: 15, offset: 20 },
-                          animated: false,
-                          interactionWidth: 25, // Memperlebar area sensor klik gantung (hit area)
-                          deletable: true,
-                          style: { stroke: "#36454F", strokeWidth: 2.5 },
-                      }))
-                    : [];
-
-                dirtyRef.current = {
-                    newNodeIds: new Set(),
-                    updatedNodeIds: new Set(),
-                    deletedNodeIds: new Set(),
-                    newEdgeIds: new Set(),
-                    deletedEdgeIds: new Set(),
-                };
-                setNodes(formattedNodes);
-                setEdges(formattedEdges);
-                setIsDirty(false);
+                setEdges(
+                    loadedConns.map((c) => {
+                        const styleConfig = getEdgeStyleByLabel(c.branch_label);
+                        return {
+                            id: String(c.id),
+                            source: String(c.source_node_id),
+                            target: String(c.target_node_id),
+                            label: c.branch_label || "",
+                            type: "smoothstep",
+                            pathOptions: { borderRadius: 15, offset: 20 },
+                            animated: false,
+                            interactionWidth: 25,
+                            deletable: true,
+                            labelBgPadding: [8, 4],
+                            labelBgBorderRadius: 4,
+                            labelBgStyle: {
+                                fill: styleConfig.labelBg,
+                                stroke: "#000000",
+                                strokeWidth: 1.5,
+                            },
+                            labelStyle: {
+                                fill: styleConfig.labelText,
+                                fontWeight: 800,
+                                fontSize: 10,
+                                textTransform: "uppercase",
+                            },
+                            style: {
+                                stroke: styleConfig.stroke,
+                                strokeWidth: styleConfig.strokeWidth,
+                            },
+                        };
+                    }),
+                );
             } catch (error) {
-                console.error(`Gagal memuat data Flow #${flowId}:`, error);
+                if (!ignore) {
+                    console.error(`Gagal memuat data Flow #${flowId}:`, error);
+                }
             } finally {
-                setIsLoading(false);
+                if (!ignore) setIsLoading(false);
             }
         };
 
         loadFlowData();
+
+        return () => {
+            ignore = true;
+        };
     }, [flowId]);
 
     // -----------------------------------------------------------------
@@ -253,14 +269,16 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
                     !change.dragging
                 ) {
                     if (!isTempId(change.id)) {
-                        d.updatedNodeIds.add(change.id);
+                        d.updatedNodeIds.add(String(change.id));
                     }
                     touched = true;
                 } else if (change.type === "remove" && change.id) {
                     const nodeId = String(change.id);
                     if (d.newNodeIds.has(nodeId)) {
+                        // Jika temporary, hapus dari list create tanpa masuk list delete BE
                         d.newNodeIds.delete(nodeId);
-                    } else {
+                    } else if (!isTempId(nodeId)) {
+                        // Hanya tambahkan ke list delete jika ID database asli!
                         d.deletedNodeIds.add(nodeId);
                     }
                     d.updatedNodeIds.delete(nodeId);
@@ -293,9 +311,9 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
                 prevSignature !== undefined &&
                 prevSignature !== signature &&
                 !isTempId(node.id) &&
-                !dirtyRef.current.deletedNodeIds.has(node.id)
+                !dirtyRef.current.deletedNodeIds.has(String(node.id))
             ) {
-                dirtyRef.current.updatedNodeIds.add(node.id);
+                dirtyRef.current.updatedNodeIds.add(String(node.id));
                 changedAny = true;
             }
         }
@@ -311,39 +329,137 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
         (params) => {
             if (!params.source || !params.target) return;
 
+            const sourceNode = nodes.find(
+                (n) => String(n.id) === String(params.source),
+            );
+            const isConditionNode =
+                (
+                    sourceNode?.data?.category ||
+                    sourceNode?.data?.type ||
+                    ""
+                ).toLowerCase() === "condition";
+
+            let branchLabel = "";
+
+            if (isConditionNode) {
+                const existingEdgesFromSource = edges.filter(
+                    (e) => String(e.source) === String(params.source),
+                );
+                const usedLabels = existingEdgesFromSource.map((e) =>
+                    String(e.label || "")
+                        .toLowerCase()
+                        .trim(),
+                );
+
+                let defaultChoice = "true";
+                if (
+                    usedLabels.includes("true") &&
+                    !usedLabels.includes("false")
+                ) {
+                    defaultChoice = "false";
+                }
+
+                const userInput = window.prompt(
+                    "Koneksi dari Condition Node. Tentukan cabang (ketik 'true' atau 'false'):",
+                    defaultChoice,
+                );
+
+                if (userInput === null) return;
+                const formatted = userInput.toLowerCase().trim();
+                branchLabel =
+                    formatted === "true" || formatted === "false"
+                        ? formatted
+                        : userInput.trim();
+            }
+
+            const styleConfig = getEdgeStyleByLabel(branchLabel);
             const newEdgeId = genTempId("edge");
+
             const newEdge = {
                 id: newEdgeId,
                 source: String(params.source),
                 target: String(params.target),
-                label: "",
+                label: branchLabel,
                 type: "smoothstep",
                 pathOptions: { borderRadius: 15, offset: 20 },
                 animated: false,
-                interactionWidth: 25, // Area sensor klik tebal 25px
+                interactionWidth: 25,
                 deletable: true,
-                style: { stroke: "#36454F", strokeWidth: 2.5 },
+                labelBgPadding: [8, 4],
+                labelBgBorderRadius: 4,
+                labelBgStyle: {
+                    fill: styleConfig.labelBg,
+                    stroke: "#000000",
+                    strokeWidth: 1.5,
+                },
+                labelStyle: {
+                    fill: styleConfig.labelText,
+                    fontWeight: 800,
+                    fontSize: 10,
+                    textTransform: "uppercase",
+                },
+                style: {
+                    stroke: styleConfig.stroke,
+                    strokeWidth: styleConfig.strokeWidth,
+                },
             };
 
             dirtyRef.current.newEdgeIds.add(newEdgeId);
             setEdges((eds) => addEdge(newEdge, eds));
             markDirty();
         },
+        [nodes, edges, setEdges, markDirty],
+    );
+
+    const updateEdgeLabel = useCallback(
+        (edgeId, newLabel) => {
+            setEdges((eds) =>
+                eds.map((edge) => {
+                    if (String(edge.id) !== String(edgeId)) return edge;
+
+                    const styleConfig = getEdgeStyleByLabel(newLabel);
+                    return {
+                        ...edge,
+                        label: newLabel,
+                        labelBgStyle: {
+                            fill: styleConfig.labelBg,
+                            stroke: "#000000",
+                            strokeWidth: 1.5,
+                        },
+                        labelStyle: {
+                            fill: styleConfig.labelText,
+                            fontWeight: 800,
+                            fontSize: 10,
+                            textTransform: "uppercase",
+                        },
+                        style: {
+                            ...edge.style,
+                            stroke: styleConfig.stroke,
+                            strokeWidth: styleConfig.strokeWidth,
+                        },
+                    };
+                }),
+            );
+
+            markDirty();
+        },
         [setEdges, markDirty],
     );
 
     // -----------------------------------------------------------------
-    // HAPUS EDGE VIA KEYBOARD (DELETE / BACKSPACE)
+    // HAPUS EDGE VIA KEYBOARD
     // -----------------------------------------------------------------
     const handleEdgesChange = useCallback(
         (changes) => {
             for (const change of changes) {
                 if (change.type === "remove") {
+                    const edgeId = String(change.id);
                     const d = dirtyRef.current;
-                    if (d.newEdgeIds.has(change.id)) {
-                        d.newEdgeIds.delete(change.id);
-                    } else {
-                        d.deletedEdgeIds.add(change.id);
+                    if (d.newEdgeIds.has(edgeId)) {
+                        d.newEdgeIds.delete(edgeId);
+                    } else if (!isTempId(edgeId)) {
+                        // Hanya catat ke DB jika ID edge bukan temp
+                        d.deletedEdgeIds.add(edgeId);
                     }
                     markDirty();
                 }
@@ -373,7 +489,11 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
                                 : isCompleted
                                   ? "#10B981"
                                   : "#36454F",
-                            strokeWidth: isTraveling ? 4 : isCompleted ? 3 : 2.5,
+                            strokeWidth: isTraveling
+                                ? 4
+                                : isCompleted
+                                  ? 3
+                                  : 2.5,
                         },
                     };
                 }),
@@ -425,6 +545,35 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
     }, []);
 
     // -----------------------------------------------------------------
+    // TAMBAH NODE VIA KLIK (dari FloatingNodeMenu)
+    // -----------------------------------------------------------------
+    // Sengaja disamakan persis dengan onDrop di atas (termasuk daftarkan
+    // ke dirtyRef.current.newNodeIds + markDirty), supaya node yang
+    // ditambahkan lewat klik ikut ke-track dan benar-benar terkirim ke
+    // backend saat "Simpan Flow". Sebelumnya FloatingNodeMenu manggil
+    // setNodes miliknya sendiri langsung, sehingga node yang ditambah
+    // lewat klik TIDAK PERNAH terdaftar dirty -> gagal dikirim ke BE saat
+    // save, dan edge yang menyambung ke node itu ikut gagal karena
+    // source/target masih berupa temp_node_... yang tidak pernah resolve
+    // ke ID asli dari database.
+    const addNodeAtPosition = useCallback(
+        (nodePayload, position) => {
+            const newId = genTempId("node");
+            const newNode = {
+                id: newId,
+                type: "customApi",
+                position,
+                data: buildNodeContent(nodePayload),
+            };
+
+            dirtyRef.current.newNodeIds.add(newId);
+            setNodes((nds) => nds.concat(newNode));
+            markDirty();
+        },
+        [setNodes, markDirty],
+    );
+
+    // -----------------------------------------------------------------
     // CONTEXT MENU & ACTIONS
     // -----------------------------------------------------------------
     const onNodeContextMenu = useCallback((event, node) => {
@@ -465,7 +614,7 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
         const d = dirtyRef.current;
         if (d.newNodeIds.has(targetNodeId)) {
             d.newNodeIds.delete(targetNodeId);
-        } else {
+        } else if (!isTempId(targetNodeId)) {
             d.deletedNodeIds.add(targetNodeId);
         }
         d.updatedNodeIds.delete(targetNodeId);
@@ -479,8 +628,9 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
                     String(edge.source) === targetNodeId ||
                     String(edge.target) === targetNodeId;
                 if (touchesTarget) {
-                    if (d.newEdgeIds.has(edge.id)) d.newEdgeIds.delete(edge.id);
-                    else d.deletedEdgeIds.add(edge.id);
+                    const edgeId = String(edge.id);
+                    if (d.newEdgeIds.has(edgeId)) d.newEdgeIds.delete(edgeId);
+                    else if (!isTempId(edgeId)) d.deletedEdgeIds.add(edgeId);
                 }
                 return !touchesTarget;
             });
@@ -504,7 +654,7 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
         const d = dirtyRef.current;
         if (d.newEdgeIds.has(targetEdgeId)) {
             d.newEdgeIds.delete(targetEdgeId);
-        } else {
+        } else if (!isTempId(targetEdgeId)) {
             d.deletedEdgeIds.add(targetEdgeId);
         }
 
@@ -581,7 +731,7 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
     }, []);
 
     // -----------------------------------------------------------------
-    // SIMPAN FLOW
+    // SIMPAN FLOW (SAVE) - REVISED & FIXED
     // -----------------------------------------------------------------
     const saveFlow = useCallback(async () => {
         if (!flowId || isSaving) return { success: false };
@@ -592,25 +742,39 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
         const errors = [];
 
         try {
-            for (const tempId of d.newNodeIds) {
-                const node = nodes.find((n) => n.id === tempId);
+            // 1. TAMBAH NODE BARU TERLEBIH DAHULU
+            for (const tempId of Array.from(d.newNodeIds)) {
+                const node = nodes.find((n) => String(n.id) === String(tempId));
                 if (!node) continue;
                 try {
                     const orderIndex =
-                        nodes.findIndex((n) => n.id === tempId) + 1;
+                        nodes.findIndex(
+                            (n) => String(n.id) === String(tempId),
+                        ) + 1;
                     const response = await nodeService.createNode(
                         flowId,
                         toNodeApiPayload(node, orderIndex),
                     );
                     const saved = extractData(response);
-                    if (saved?.id) idMap.set(tempId, String(saved.id));
+
+                    if (saved?.id) {
+                        idMap.set(String(tempId), String(saved.id));
+                    } else {
+                        throw new Error(
+                            `Server tidak mengembalikan ID valid untuk node ${tempId}`,
+                        );
+                    }
                 } catch (error) {
+                    console.error(`Gagal membuat node ${tempId}:`, error);
                     errors.push({ type: "node-create", tempId, error });
                 }
             }
 
-            for (const nodeId of d.updatedNodeIds) {
-                const node = nodes.find((n) => n.id === nodeId);
+            // 2. UPDATE NODE EKSISTING
+            for (const nodeId of Array.from(d.updatedNodeIds)) {
+                if (isTempId(nodeId) || d.deletedNodeIds.has(nodeId)) continue;
+
+                const node = nodes.find((n) => String(n.id) === String(nodeId));
                 if (!node) continue;
                 try {
                     await nodeService.updateNode(
@@ -618,74 +782,128 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
                         toNodeApiPayload(node),
                     );
                 } catch (error) {
+                    console.error(`Gagal update node ${nodeId}:`, error);
                     errors.push({ type: "node-update", nodeId, error });
                 }
             }
 
-            for (const nodeId of d.deletedNodeIds) {
+            // 3. HAPUS NODE DI BE (Hanya yang BUKAN temp_node)
+            for (const nodeId of Array.from(d.deletedNodeIds)) {
+                if (isTempId(nodeId)) continue;
                 try {
                     await nodeService.deleteNode(nodeId);
                 } catch (error) {
+                    console.error(`Gagal hapus node ${nodeId}:`, error);
                     errors.push({ type: "node-delete", nodeId, error });
                 }
             }
 
-            const resolveId = (id) => idMap.get(id) || id;
-            for (const tempEdgeId of d.newEdgeIds) {
-                const edge = edges.find((e) => e.id === tempEdgeId);
+            const resolveId = (id) => idMap.get(String(id)) || String(id);
+
+            // 4. BUAT KONEKSI (EDGE) BARU - DENGAN VALIDASI STRICT ID DB
+            for (const tempEdgeId of Array.from(d.newEdgeIds)) {
+                const edge = edges.find(
+                    (e) => String(e.id) === String(tempEdgeId),
+                );
                 if (!edge) continue;
+
+                const sourceId = resolveId(edge.source);
+                const targetId = resolveId(edge.target);
+
+                // CEK KRUSIAL: Cegah pengiriman jika source atau target MASIH berupa temp_node
+                if (
+                    !sourceId ||
+                    !targetId ||
+                    isTempId(sourceId) ||
+                    isTempId(targetId)
+                ) {
+                    console.warn(
+                        `[FlowEditor] Abort edge creation ${tempEdgeId}: Source/Target belum ter-persist di DB (source=${sourceId}, target=${targetId})`,
+                    );
+                    errors.push({
+                        type: "edge-create",
+                        tempEdgeId,
+                        error: new Error(
+                            `Source or target node ID invalid: source=${sourceId}, target=${targetId}`,
+                        ),
+                    });
+                    continue; // Skip, jangan panggil connectionService.createConnection
+                }
+
                 try {
-                    const sourceId = resolveId(edge.source);
-                    const targetId = resolveId(edge.target);
-                    if (!sourceId || !targetId) {
-                        errors.push({
-                            type: "edge-create",
-                            tempEdgeId,
-                            error: new Error(
-                                `Source or target node ID invalid: source=${sourceId}, target=${targetId}`,
-                            ),
-                        });
-                        continue;
-                    }
                     const payload = {
-                        source_node_id: Number(sourceId),
-                        target_node_id: Number(targetId),
+                        source_node_id: String(sourceId),
+                        target_node_id: String(targetId),
                         branch_label: edge.label || "",
                     };
-                    await connectionService.createConnection(flowId, payload);
+                    const connResponse =
+                        await connectionService.createConnection(
+                            flowId,
+                            payload,
+                        );
+                    const savedConn = extractData(connResponse);
+
+                    if (savedConn?.id) {
+                        idMap.set(String(tempEdgeId), String(savedConn.id));
+                    }
                 } catch (error) {
+                    console.error(
+                        `Gagal membuat connection untuk edge ${tempEdgeId}:`,
+                        error,
+                    );
                     errors.push({ type: "edge-create", tempEdgeId, error });
                 }
             }
 
-            for (const edgeId of d.deletedEdgeIds) {
+            // 5. HAPUS KONEKSI (EDGE) DI BE (Hanya yang BUKAN temp_edge)
+            for (const edgeId of Array.from(d.deletedEdgeIds)) {
+                if (isTempId(edgeId)) continue;
                 try {
                     await connectionService.deleteConnection(edgeId);
                 } catch (error) {
+                    console.error(`Gagal hapus connection ${edgeId}:`, error);
                     errors.push({ type: "edge-delete", edgeId, error });
                 }
             }
 
+            // Remap ID di canvas lokal jika ada ID temp yang sukses terkonversi ke ID DB
             if (idMap.size > 0) {
                 setNodes((nds) =>
                     nds.map((n) =>
-                        idMap.has(n.id) ? { ...n, id: idMap.get(n.id) } : n,
+                        idMap.has(String(n.id))
+                            ? { ...n, id: idMap.get(String(n.id)) }
+                            : n,
                     ),
                 );
                 setEdges((eds) =>
                     eds.map((e) => ({
                         ...e,
+                        id: idMap.get(String(e.id)) || e.id,
                         source: resolveId(e.source),
                         target: resolveId(e.target),
                     })),
                 );
             }
 
+            // Clean up dirty state hanya untuk entitas yang BERSINAR SUKSES
             if (errors.length > 0) {
-                console.error("Sebagian perubahan gagal disimpan:", errors);
+                console.warn(
+                    `Sebagian perubahan gagal disimpan: (${errors.length})`,
+                    errors,
+                );
+
+                // Hapus item yang sukses dari dirty state agar tidak tersimpan ulang
+                errors.forEach((err) => {
+                    if (err.type === "node-create")
+                        d.newNodeIds.add(err.tempId);
+                    if (err.type === "edge-create")
+                        d.newEdgeIds.add(err.tempEdgeId);
+                });
+
                 return { success: false, errors };
             }
 
+            // Bersihkan semua dirty tracker jika 100% sukses
             dirtyRef.current = {
                 newNodeIds: new Set(),
                 updatedNodeIds: new Set(),
@@ -698,6 +916,9 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
             await canvasDraftStore.clear(flowId);
 
             return { success: true };
+        } catch (globalError) {
+            console.error("Critical error inside saveFlow:", globalError);
+            return { success: false, error: globalError };
         } finally {
             setIsSaving(false);
         }
@@ -720,6 +941,8 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
         onConnect,
         onDrop,
         onDragOver,
+        addNodeAtPosition,
+        screenToFlowPosition,
         menu,
         copiedNode,
         reactFlowWrapper,
@@ -733,6 +956,7 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
             deleteNode,
             deleteEdge,
             copyNode,
+            updateEdgeLabel,
             duplicateNode,
             pasteNode,
         },
