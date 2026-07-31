@@ -149,6 +149,7 @@ export default function Login() {
         setIsLoading(true);
         setError(null);
 
+        // 1. Validasi Password
         if (password !== confirmPassword) {
             setErrorPopup({
                 isOpen: true,
@@ -163,8 +164,6 @@ export default function Login() {
         }
 
         try {
-            // Karena kontrak registrasi memerlukan "name", untuk form awal kamu bisa menyertakan nama default atau menambahkan input Name di form Sign Up.
-            // Di sini kita ambil string sebelum '@' dari email sebagai nama default, atau sediakan input name.
             const nameFromEmail = email.split("@")[0];
             const payload = {
                 name:
@@ -175,13 +174,38 @@ export default function Login() {
                 password_confirmation: confirmPassword,
             };
 
-            const response = await authService.register(payload);
+            // Karena responseInterceptor di apiClient langsung me-return response.data,
+            // hasil dari authService.register(payload) langsung berisi { success, message, data: { token, user } }
+            const res = await authService.register(payload);
 
-            const { access_token, user } = response.data;
+            // Ambil token & user dari response (samakan dengan penamaan properti di handleLogin)
+            const token = res.data?.token || res.data?.access_token;
+            const user = res.data?.user;
 
-            // Login otomatis setelah register sukses
-            login(access_token, user);
-            navigate("/flow");
+            if (token && user) {
+                // Set token sementara untuk request permissions
+                useAuthStore.setState({ token: token });
+
+                // Sync permissions jika user baru punya role_id default
+                let myPermissions = [];
+                if (user.role_id) {
+                    myPermissions = await userService.syncUserPermissions(
+                        user.role_id,
+                    );
+                }
+
+                // Simpan ke store Zustand & Redirect
+                login(token, user, myPermissions);
+                navigate("/");
+            } else {
+                // Jika backend registrasi tidak langsung mengembalikan token (hanya kirim pesan sukses)
+                setErrorPopup({
+                    isOpen: false,
+                    title: "Registrasi Berhasil",
+                    message: "Akun berhasil dibuat. Silakan login.",
+                });
+                // Kamu bisa kembalikan flip card ke mode login di sini jika ada state-nya
+            }
         } catch (err) {
             setErrorPopup({
                 isOpen: true,
@@ -406,19 +430,17 @@ export default function Login() {
                                     </button>
                                 </form>
                             </div>
+                            {/* SIGN UP FACE */}
                             <div className="flip-card-face w-full [transform:rotateY(180deg)] p-[35px] absolute flex flex-col justify-center [backface-visibility:hidden] bg-[#f0f0f0] gap-5 rounded-[10px] border-[3px] border-[var(--main-color)] shadow-[8px_8px_var(--main-color)]">
                                 <div className="mb-[5px] text-[32px] font-black text-center text-[var(--main-color)]">
                                     Sign up
                                 </div>
-                                {error && (
-                                    <div className="bg-[#fee2e2] text-[#dc2626] px-[15px] py-[10px] rounded-lg text-base font-semibold w-full text-center border-2 border-[#dc2626] box-border">
-                                        {error}
-                                    </div>
-                                )}
+
                                 <form
                                     className="flex flex-col items-center gap-[26px]"
                                     onSubmit={handleSignUp}
                                 >
+                                    {/* Input Email */}
                                     <input
                                         className="w-full h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-[var(--font-color)] px-[15px] pr-[45px] outline-none box-border placeholder:text-[var(--font-color-sub)] placeholder:opacity-80 focus:border-[var(--input-focus)]"
                                         name="email"
@@ -430,6 +452,8 @@ export default function Login() {
                                         }
                                         required
                                     />
+
+                                    {/* Input Password */}
                                     <div className="relative w-[340px]">
                                         <input
                                             className="w-full h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-[var(--font-color)] px-[15px] pr-[45px] outline-none box-border placeholder:text-[var(--font-color-sub)] placeholder:opacity-80 focus:border-[var(--input-focus)]"
@@ -455,31 +479,11 @@ export default function Login() {
                                                 )
                                             }
                                         >
-                                            {showSignupPassword ? (
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    width="20"
-                                                    height="20"
-                                                >
-                                                    <path
-                                                        fill="currentColor"
-                                                        d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
-                                                    />
-                                                </svg>
-                                            ) : (
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    width="20"
-                                                    height="20"
-                                                >
-                                                    <path
-                                                        fill="currentColor"
-                                                        d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"
-                                                    />
-                                                </svg>
-                                            )}
+                                            {/* SVG Icon */}
                                         </button>
                                     </div>
+
+                                    {/* Input Confirm Password */}
                                     <div className="relative w-[340px]">
                                         <input
                                             className="w-full h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-[var(--font-color)] px-[15px] pr-[45px] outline-none box-border placeholder:text-[var(--font-color-sub)] placeholder:opacity-80 focus:border-[var(--input-focus)]"
@@ -507,31 +511,10 @@ export default function Login() {
                                                 )
                                             }
                                         >
-                                            {showSignupConfirmPassword ? (
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    width="20"
-                                                    height="20"
-                                                >
-                                                    <path
-                                                        fill="currentColor"
-                                                        d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
-                                                    />
-                                                </svg>
-                                            ) : (
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    width="20"
-                                                    height="20"
-                                                >
-                                                    <path
-                                                        fill="currentColor"
-                                                        d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"
-                                                    />
-                                                </svg>
-                                            )}
+                                            {/* SVG Icon */}
                                         </button>
                                     </div>
+
                                     <button
                                         className="my-[15px] w-[170px] h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-xl font-semibold text-[var(--font-color)] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed active:shadow-[0px_0px_var(--main-color)] active:translate-x-1 active:translate-y-1"
                                         type="submit"

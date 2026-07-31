@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { templateService } from "@/services/templateService";
-import { Plus, Trash2, Loader2, ChevronDown } from "lucide-react";
+import { aiService } from "@/services/aiService"; // Import aiService
+import { Plus, Trash2, Loader2, ChevronDown, Sparkles } from "lucide-react"; // Import Sparkles
 import { NODE_TYPE_CONFIG } from "@/config/nodeTypes";
-
 
 export default function TemplatesPage() {
     const [templates, setTemplates] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false); // <--- Tambahkan ini
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false); // State loading untuk AI
 
     // State disesuaikan dengan payload backend
     const [formData, setFormData] = useState({
@@ -35,6 +36,43 @@ export default function TemplatesPage() {
     useEffect(() => {
         fetchTemplates();
     }, []);
+
+    // Handler AI untuk Auto-Fill Config Template
+    const handleAIGenerate = async () => {
+        if (!formData.name.trim()) {
+            alert("Isi Nama Template terlebih dahulu!");
+            return;
+        }
+
+        setIsGenerating(true);
+        try {
+            const aiData = await aiService.generateTemplateDetails({
+                name: formData.name,
+                nodeType: formData.node_type,
+            });
+
+            setFormData((prev) => ({
+                ...prev,
+                default_input_params: JSON.stringify(
+                    aiData.default_input_params || {},
+                    null,
+                    2,
+                ),
+                default_validation: aiData.default_validation || "",
+                default_process_logic: aiData.default_process_logic || "",
+                default_output_template: JSON.stringify(
+                    aiData.default_output_template || {},
+                    null,
+                    2,
+                ),
+            }));
+        } catch (error) {
+            console.error("Gagal generate config via AI:", error);
+            alert(`Gagal generate AI: ${error.message}`);
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -112,10 +150,10 @@ export default function TemplatesPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Di dalam map templates item[cite: 6] */}
                     {templates.map((item) => {
-                        // Ambil konfigurasi visual berdasarkan node_type
-                        const typeConfig = NODE_TYPE_CONFIG[item.node_type] || NODE_TYPE_CONFIG.process;
+                        const typeConfig =
+                            NODE_TYPE_CONFIG[item.node_type] ||
+                            NODE_TYPE_CONFIG.process;
                         const IconComponent = typeConfig.icon;
 
                         return (
@@ -126,24 +164,37 @@ export default function TemplatesPage() {
                                 <div>
                                     <div className="flex justify-between items-start gap-2">
                                         <div className="flex items-center gap-2">
-                                            {/* Ikon Otomatis Sesuai Type */}
-                                            <div className={`p-1.5 border-2 border-black ${typeConfig.badgeColor}`}>
-                                                <IconComponent size={16} className="text-black" />
+                                            <div
+                                                className={`p-1.5 border-2 border-black ${typeConfig.badgeColor}`}
+                                            >
+                                                <IconComponent
+                                                    size={16}
+                                                    className="text-black"
+                                                />
                                             </div>
                                             <h3 className="font-bold text-olive-900 text-sm">
                                                 {item.name}
                                             </h3>
                                         </div>
-                                        
-                                        {/* Badge Warna Sesuai Type */}
-                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 border border-black ${typeConfig.badgeColor}`}>
+
+                                        <span
+                                            className={`text-[10px] font-black uppercase px-2 py-0.5 border border-black ${typeConfig.badgeColor}`}
+                                        >
                                             {item.node_type}
                                         </span>
                                     </div>
 
                                     <div className="mt-3 text-[10px] bg-slate-50 p-2 border-2 border-black font-mono overflow-x-auto max-h-24">
-                                        <p className="font-bold text-black mb-1">Input Params:</p>
-                                        <pre>{JSON.stringify(item.default_input_params, null, 2)}</pre>
+                                        <p className="font-bold text-black mb-1">
+                                            Input Params:
+                                        </p>
+                                        <pre>
+                                            {JSON.stringify(
+                                                item.default_input_params,
+                                                null,
+                                                2,
+                                            )}
+                                        </pre>
                                     </div>
                                 </div>
 
@@ -164,20 +215,25 @@ export default function TemplatesPage() {
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white border-2 border-black shadow-[6px_6px_0px_rgba(0,0,0,1)] p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-                        <h2 className="text-lg font-black text-olive-900 mb-4">
-                            Tambah Template Node
-                        </h2>
+                        <div className="flex justify-between items-center mb-4 border-b-2 border-olive-200 pb-2">
+                            <h2 className="text-lg font-black text-olive-900">
+                                Tambah Template Node
+                            </h2>
+                        </div>
+
                         <form
                             onSubmit={handleSubmit}
                             className="flex flex-col gap-3 text-xs"
                         >
+                            {/* NAMA TEMPLATE + TOMBOL AI */}
                             <div>
                                 <label className="font-bold text-olive-900 block mb-1">
-                                    Nama Template
+                                    Nama Template *
                                 </label>
                                 <input
                                     type="text"
                                     required
+                                    placeholder="Contoh: Validasi Stok Produk"
                                     value={formData.name}
                                     onChange={(e) =>
                                         setFormData({
@@ -187,27 +243,72 @@ export default function TemplatesPage() {
                                     }
                                     className="w-full p-2 border-2 border-olive-900 font-semibold"
                                 />
+
+                                {/* BUTTON GENERATE CONFIG VIA AI */}
+                                <button
+                                    type="button"
+                                    onClick={handleAIGenerate}
+                                    disabled={
+                                        isGenerating || !formData.name.trim()
+                                    }
+                                    className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-black text-black bg-amber-300 border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-amber-400 active:translate-y-0.5 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
+                                >
+                                    {isGenerating ? (
+                                        <>
+                                            <Loader2
+                                                size={14}
+                                                className="animate-spin"
+                                            />
+                                            Generating Config with Gemini...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles size={14} />
+                                            Auto-Fill Details with AI
+                                        </>
+                                    )}
+                                </button>
                             </div>
-                            {/* Custom Neo-Brutalist Dropdown dengan Lucide Icon */}
+
+                            {/* NODE TYPE DROPDOWN */}
                             <div className="relative">
                                 <label className="font-bold text-olive-900 block mb-1">
                                     Node Type
                                 </label>
                                 <div
-                                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                    onClick={() =>
+                                        setIsDropdownOpen(!isDropdownOpen)
+                                    }
                                     className="w-full p-2 border-2 border-olive-900 font-semibold bg-white cursor-pointer flex justify-between items-center select-none"
                                 >
-                                    <span className="capitalize">{formData.node_type}</span>
-                                    <ChevronDown size={16} className={`text-olive-900 transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
+                                    <span className="capitalize">
+                                        {formData.node_type}
+                                    </span>
+                                    <ChevronDown
+                                        size={16}
+                                        className={`text-olive-900 transition-transform duration-200 ${
+                                            isDropdownOpen ? "rotate-180" : ""
+                                        }`}
+                                    />
                                 </div>
 
                                 {isDropdownOpen && (
                                     <div className="absolute top-full left-0 w-full mt-1 bg-white border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] z-50 flex flex-col">
-                                        {["start", "process", "validation", "database", "api", "end"].map((type) => (
+                                        {[
+                                            "start",
+                                            "process",
+                                            "validation",
+                                            "database",
+                                            "api",
+                                            "end",
+                                        ].map((type) => (
                                             <div
                                                 key={type}
                                                 onClick={() => {
-                                                    setFormData({ ...formData, node_type: type });
+                                                    setFormData({
+                                                        ...formData,
+                                                        node_type: type,
+                                                    });
                                                     setIsDropdownOpen(false);
                                                 }}
                                                 className="p-2 text-xs font-semibold hover:bg-olive-200 cursor-pointer capitalize border-b border-olive-200 last:border-b-0"
@@ -218,12 +319,14 @@ export default function TemplatesPage() {
                                     </div>
                                 )}
                             </div>
+
+                            {/* INPUT PARAMS */}
                             <div>
                                 <label className="font-bold text-olive-900 block mb-1">
                                     Input Params (JSON)
                                 </label>
                                 <textarea
-                                    rows={2}
+                                    rows={3}
                                     value={formData.default_input_params}
                                     onChange={(e) =>
                                         setFormData({
@@ -235,6 +338,8 @@ export default function TemplatesPage() {
                                     className="w-full p-2 border-2 border-olive-900 font-mono text-[11px]"
                                 />
                             </div>
+
+                            {/* VALIDATION LOGIC */}
                             <div>
                                 <label className="font-bold text-olive-900 block mb-1">
                                     Validation Logic
@@ -252,6 +357,8 @@ export default function TemplatesPage() {
                                     placeholder="Contoh: stock > 10"
                                 />
                             </div>
+
+                            {/* PROCESS LOGIC */}
                             <div>
                                 <label className="font-bold text-olive-900 block mb-1">
                                     Process Logic
@@ -269,12 +376,14 @@ export default function TemplatesPage() {
                                     className="w-full p-2 border-2 border-olive-900 font-mono text-[11px]"
                                 />
                             </div>
+
+                            {/* OUTPUT TEMPLATE */}
                             <div>
                                 <label className="font-bold text-olive-900 block mb-1">
                                     Output Template (JSON)
                                 </label>
                                 <textarea
-                                    rows={2}
+                                    rows={3}
                                     value={formData.default_output_template}
                                     onChange={(e) =>
                                         setFormData({
@@ -287,7 +396,7 @@ export default function TemplatesPage() {
                                 />
                             </div>
 
-                            <div className="flex justify-end gap-2 mt-4">
+                            <div className="flex justify-end gap-2 mt-4 pt-2 border-t-2 border-olive-200">
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}

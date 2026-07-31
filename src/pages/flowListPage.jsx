@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FolderKanban, Plus, ArrowRight, Loader2, Trash2 } from "lucide-react";
+import {
+    FolderKanban,
+    Plus,
+    ArrowRight,
+    Loader2,
+    Trash2,
+    Sparkles,
+} from "lucide-react";
 import { flowService } from "@/services/flowService";
+import { aiService } from "@/services/aiService"; // Import service AI
 
 export default function FlowListPage() {
     const navigate = useNavigate();
@@ -14,9 +22,10 @@ export default function FlowListPage() {
     const [flowDescription, setFlowDescription] = useState("");
     const [version, setVersion] = useState("v1.0");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false); // State loading untuk AI
 
     // Modal Delete Flow State
-    const [deletingFlow, setDeletingFlow] = useState(null); // Menyimpan objek flow yang akan dihapus
+    const [deletingFlow, setDeletingFlow] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchFlows = async () => {
@@ -35,6 +44,27 @@ export default function FlowListPage() {
     useEffect(() => {
         fetchFlows();
     }, []);
+
+    // Handler AI untuk generate deskripsi otomatis via Gemini
+    const handleAIGenerate = async () => {
+        if (!flowName.trim()) {
+            alert("Isi Nama Flow terlebih dahulu!");
+            return;
+        }
+
+        setIsGenerating(true);
+        try {
+            const res = await aiService.generateFlowDetails({ flowName });
+            if (res.description) {
+                setFlowDescription(res.description);
+            }
+        } catch (error) {
+            console.error("Gagal generate deskripsi via AI:", error);
+            alert(`Gagal generate AI: ${error.message}`);
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     const handleCreateNewFlow = async (e) => {
         e.preventDefault();
@@ -68,7 +98,6 @@ export default function FlowListPage() {
         }
     };
 
-    // Handler untuk mengeksekusi penghapusan Flow via API
     const handleDeleteFlow = async () => {
         if (!deletingFlow) return;
         const targetId = deletingFlow.id || deletingFlow.uuid;
@@ -77,7 +106,6 @@ export default function FlowListPage() {
             setIsDeleting(true);
             await flowService.deleteFlow(targetId);
 
-            // Filter state lokal agar UI langsung ter-update tanpa perlu reload
             setFlows((prev) =>
                 prev.filter((f) => (f.id || f.uuid) !== targetId),
             );
@@ -142,12 +170,11 @@ export default function FlowListPage() {
                                         <span className="text-[10px] font-black uppercase bg-olive-900 text-white px-2 py-1">
                                             {flow.version || "v1.0"}
                                         </span>
-                                        {/* Tombol Hapus Flow */}
                                         <button
                                             type="button"
                                             title="Hapus Flow"
                                             onClick={(e) => {
-                                                e.stopPropagation(); // Mencegah pemicu event navigate
+                                                e.stopPropagation();
                                                 setDeletingFlow(flow);
                                             }}
                                             className="p-1.5 bg-rose-100 hover:bg-rose-500 hover:text-white text-rose-700 border-2 border-olive-900 transition-colors cursor-pointer"
@@ -198,6 +225,7 @@ export default function FlowListPage() {
                                 <input
                                     type="text"
                                     required
+                                    placeholder="Contoh: Approval Cuti Karyawan"
                                     value={flowName}
                                     onChange={(e) =>
                                         setFlowName(e.target.value)
@@ -205,6 +233,7 @@ export default function FlowListPage() {
                                     className="p-2 border-2 border-olive-900 bg-white text-sm font-semibold outline-none"
                                 />
                             </div>
+
                             <div className="flex flex-col gap-1">
                                 <label className="text-xs font-bold text-olive-900 uppercase">
                                     Version *
@@ -217,12 +246,40 @@ export default function FlowListPage() {
                                     className="p-2 border-2 border-olive-900 bg-white text-sm font-semibold outline-none"
                                 />
                             </div>
+
                             <div className="flex flex-col gap-1">
-                                <label className="text-xs font-bold text-olive-900 uppercase">
-                                    Deskripsi
-                                </label>
+                                <div className="flex justify-between items-center">
+                                    <label className="text-xs font-bold text-olive-900 uppercase">
+                                        Deskripsi
+                                    </label>
+                                    {/* Tombol AI Gemini disisip di header label deskripsi */}
+                                    <button
+                                        type="button"
+                                        onClick={handleAIGenerate}
+                                        disabled={
+                                            isGenerating || !flowName.trim()
+                                        }
+                                        className="flex items-center gap-1 text-[11px] font-black text-black bg-amber-300 px-2 py-0.5 border-2 border-olive-900 shadow-[1.5px_1.5px_0px_rgba(0,0,0,1)] hover:bg-amber-400 active:translate-y-0.5 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
+                                    >
+                                        {isGenerating ? (
+                                            <>
+                                                <Loader2
+                                                    size={12}
+                                                    className="animate-spin"
+                                                />
+                                                Generating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles size={12} />
+                                                Auto-fill via AI
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                                 <textarea
                                     rows={3}
+                                    placeholder="Ketik deskripsi atau klik Auto-fill via AI..."
                                     value={flowDescription}
                                     onChange={(e) =>
                                         setFlowDescription(e.target.value)
@@ -230,6 +287,7 @@ export default function FlowListPage() {
                                     className="p-2 border-2 border-olive-900 bg-white text-xs outline-none"
                                 />
                             </div>
+
                             <div className="flex justify-end gap-2 mt-4">
                                 <button
                                     type="button"
@@ -295,7 +353,7 @@ export default function FlowListPage() {
                                         <Loader2
                                             size={14}
                                             className="animate-spin"
-                                        />{" "}
+                                        />
                                         Menghapus...
                                     </>
                                 ) : (
