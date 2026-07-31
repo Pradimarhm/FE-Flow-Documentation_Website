@@ -1,8 +1,10 @@
-// src/services/aiService.js
+import { GoogleGenAI } from "@google/genai";
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-// Menggunakan endpoint Gemini 1.5 Flash (ringan, cepat, cocok untuk JSON parsing)
-const GEMINI_ENDPOINT = import.meta.env.VITE_GEMINI_URL + GEMINI_API_KEY;
+
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+
+const MODEL_NAME = "gemini-3.5-flash";
 
 export const aiService = {
     generateFlowDetails: async ({ flowName }) => {
@@ -22,36 +24,29 @@ export const aiService = {
 
         Format JSON Wajib:
         {
-        "description": "Deskripsi alur proses di sini...",
-        "category": "approval"
+          "description": "Deskripsi alur proses di sini...",
+          "category": "approval"
         }
         `;
 
-        const response = await fetch(GEMINI_ENDPOINT, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: promptText }] }],
-                generationConfig: {
+        try {
+            const response = await ai.models.generateContent({
+                model: MODEL_NAME,
+                contents: promptText,
+                config: {
                     responseMimeType: "application/json",
                     temperature: 0.3,
                 },
-            }),
-        });
+            });
 
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error?.message || "Gagal memanggil Gemini API");
+            const rawText = response.text;
+            if (!rawText) throw new Error("Gemini tidak mengembalikan respons.");
+
+            return JSON.parse(rawText);
+        } catch (error) {
+            console.error("Gemini API Error (generateFlowDetails):", error);
+            throw new Error(error.message || "Gagal memanggil Gemini API");
         }
-
-        const data = await response.json();
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        if (!rawText) throw new Error("Gemini tidak mengembalikan respons.");
-
-        return JSON.parse(rawText);
     },
 
     generateTemplateDetails: async ({ name, nodeType }) => {
@@ -74,37 +69,30 @@ export const aiService = {
 
         Format JSON WAJIB MURNI:
         {
-        "default_input_params": {},
-        "default_validation": "",
-        "default_process_logic": "",
-        "default_output_template": {}
+            "default_input_params": {},
+            "default_validation": "",
+            "default_process_logic": "",
+            "default_output_template": {}
         }
         `;
 
-        const response = await fetch(GEMINI_ENDPOINT, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: promptText }] }],
-                generationConfig: {
+        try {
+            const response = await ai.models.generateContent({
+                model: MODEL_NAME,
+                contents: promptText,
+                config: {
                     responseMimeType: "application/json",
                     temperature: 0.2,
                 },
-            }),
-        });
+            });
 
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error?.message || "Gagal memanggil Gemini API");
+            const rawText = response.text;
+            if (!rawText) throw new Error("Gemini tidak mengembalikan respons.");
+
+            return JSON.parse(rawText);
+        } catch (error) {
+            console.error("Gemini API Error (generateTemplateDetails):", error);
+            throw new Error(error.message || "Gagal memanggil Gemini API");
         }
-
-        const data = await response.json();
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        if (!rawText) throw new Error("Gemini tidak mengembalikan respons.");
-
-        return JSON.parse(rawText);
     },
 };
