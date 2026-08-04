@@ -9,10 +9,10 @@ const BASIC_NODES = [
         category: "start",
         color: "bg-green-100",
         config: {
-            inputParams: {},
-            validationRules: "",
-            processLogic: "// Titik awal alur, tidak memproses data",
-            outputTemplate: {},
+            input_params: {},
+            validation_rules: "",
+            process_logic: "// Titik awal alur",
+            output_template: {},
         },
     },
     {
@@ -20,10 +20,11 @@ const BASIC_NODES = [
         category: "condition",
         color: "bg-indigo-100",
         config: {
-            inputParams: { variable: "" },
-            validationRules: "variable == true",
-            processLogic: "// Evaluasi kondisi boolean (True / False)",
-            outputTemplate: { branch: "true" },
+            input_params: { variable: "" },
+            validation_rules: "variable == true",
+            process_logic: "// Evaluasi kondisi boolean",
+            output_template: { branch: "true" },
+            condition_expression: "total_belanja >= 100000"
         },
     },
     {
@@ -31,10 +32,10 @@ const BASIC_NODES = [
         category: "process",
         color: "bg-white",
         config: {
-            inputParams: { input: "" },
-            validationRules: "required:input",
-            processLogic: "// Proses data input di sini",
-            outputTemplate: { result: "" },
+            input_params: { input: "" },
+            validation_rules: "required:input",
+            process_logic: "// Proses data input di sini",
+            output_template: { result: "" },
         },
     },
     {
@@ -42,10 +43,10 @@ const BASIC_NODES = [
         category: "validation",
         color: "bg-yellow-100",
         config: {
-            inputParams: { value: "" },
-            validationRules: "value != null",
-            processLogic: "// Validasi input sebelum lanjut ke node berikutnya",
-            outputTemplate: { valid: true },
+            input_params: { value: "" },
+            validation_rules: "value != null",
+            process_logic: "// Validasi input sebelum lanjut ke node berikutnya",
+            output_template: { valid: true },
         },
     },
     {
@@ -53,10 +54,10 @@ const BASIC_NODES = [
         category: "database",
         color: "bg-blue-100",
         config: {
-            inputParams: { query: "", table: "" },
-            validationRules: "table != null",
-            processLogic: "// Eksekusi query ke database",
-            outputTemplate: { rows: [] },
+            input_params: { query: "", table: "" },
+            validation_rules: "table != null",
+            process_logic: "// Eksekusi query ke database",
+            output_template: { rows: [] },
         },
     },
     {
@@ -64,10 +65,10 @@ const BASIC_NODES = [
         category: "api",
         color: "bg-purple-100",
         config: {
-            inputParams: { method: "GET", url: "", headers: {} },
-            validationRules: "url != null",
-            processLogic: "// Kirim request API ke endpoint eksternal",
-            outputTemplate: { status: 200, body: {} },
+            input_params: { method: "GET", url: "", headers: {} },
+            validation_rules: "url != null",
+            process_logic: "// Kirim request API ke endpoint eksternal",
+            output_template: { status: 200, body: {} },
         },
     },
     {
@@ -75,10 +76,10 @@ const BASIC_NODES = [
         category: "end",
         color: "bg-red-100",
         config: {
-            inputParams: {},
-            validationRules: "",
-            processLogic: "// Titik akhir alur",
-            outputTemplate: {},
+            input_params: {},
+            validation_rules: "",
+            process_logic: "// Titik akhir alur",
+            output_template: {},
         },
     },
 ];

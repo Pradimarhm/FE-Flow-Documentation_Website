@@ -1,6 +1,6 @@
 import React from "react";
 import { useUser } from "../hooks/useUser";
-import { User, Plus, Trash2, Edit3, Loader2, RefreshCw } from "lucide-react";
+import { User, Plus, Trash2, Edit3, Loader2, RefreshCw, Search } from "lucide-react";
 import { MASTER_ROLES } from "@/constants/permissionConstants";
 
 export default function UsersPage() {
@@ -12,6 +12,8 @@ export default function UsersPage() {
         formData,
         editingId,
         isModalOpen,
+        searchName,     // Dari hook
+        setSearchName,  // Dari hook
         handleInputChange,
         handleOpenCreateModal,
         handleOpenEditModal,
@@ -27,9 +29,9 @@ export default function UsersPage() {
 
     return (
         /* Menggunakan h-screen & overflow-hidden agar halaman pas 1 layar */
-        <div className="w-full h-full bg-olive-100 p-6 flex flex-col gap-6 overflow-hidden">
+        <div className="w-full h-full bg-olive-50 p-6 flex flex-col gap-6 overflow-hidden">
             {/* Header (Ukuran Tetap) */}
-            <div className="flex-none flex flex-row justify-between items-center bg-olive-50 p-4 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
+            <div className="flex-none flex flex-row justify-between items-center bg-olive-50 p-4 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
                 <div>
                     <h1 className="text-xl font-black text-olive-900 uppercase tracking-wide flex items-center gap-2">
                         <User size={24} /> Manajemen User
@@ -39,28 +41,38 @@ export default function UsersPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
+                    {/* INPUT SEARCH NAME */}
+                    <div className="relative flex items-center">
+                        <Search size={16} className="absolute left-3 text-olive-700 pointer-events-none" />
+                        <input
+                            type="text"
+                            placeholder="Cari user via nama..."
+                            value={searchName}
+                            onChange={(e) => setSearchName(e.target.value)}
+                            className="pl-9 pr-3 py-2.5 bg-white rounded-sm border-2 border-olive-900 text-xs font-semibold outline-none shadow-[2px_2px_0px_rgba(0,0,0,1)] focus:bg-amber-50 transition-all w-48 md:w-64"
+                        />
+                    </div>
                     <button
                         onClick={() => window.location.reload()}
-                        className="p-2 bg-white border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-olive-200 cursor-pointer"
+                        className="p-2.5 rounded-sm bg-white border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-olive-200 cursor-pointer"
                         title="Refresh"
                     >
                         <RefreshCw size={16} />
                     </button>
                     <button
                         onClick={handleOpenCreateModal}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white font-bold text-xs border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:bg-green-600 active:translate-y-0.5 active:shadow-none cursor-pointer"
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-sm bg-green-500 text-white font-bold text-xs border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:bg-green-600 active:translate-y-0.5 active:shadow-none cursor-pointer"
                     >
                         <Plus size={16} /> Tambah User
                     </button>
                 </div>
             </div>
 
-            {/* Area Tabel fleksibel mengisi sisa tinggi layar & bisa discroll internal */}
-            <div className="flex bg-white p-5 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] overflow-y-auto relative">
+            {/* Area Tabel */}
+            <div className="flex bg-white p-5 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] overflow-y-auto relative">
                 {isLoading && !isModalOpen ? (
                     <div className="flex w-full justify-center items-center gap-2 text-olive-800 font-bold">
-                        <Loader2 size={20} className="animate-spin" /> Memuat
-                        data user...
+                        <Loader2 size={20} className="animate-spin" /> Memuat data user...
                     </div>
                 ) : error ? (
                     <div className="w-full p-4 bg-red-100 border-l-4 border-red-500 text-red-700 font-bold text-sm">
@@ -69,24 +81,13 @@ export default function UsersPage() {
                 ) : (
                     <div className="relative flex-1 overflow-y-auto">
                         <table className="w-full text-left text-sm border-collapse">
-                            {/* Header Tabel Sticky di Atas */}
                             <thead className="bg-olive-200 border-b-2 border-olive-900 text-xs uppercase font-black sticky top-0 z-10">
                                 <tr>
-                                    <th className="p-3 w-16 bg-olive-200">
-                                        ID
-                                    </th>
-                                    <th className="p-3 bg-olive-200">
-                                        Nama
-                                    </th>
-                                    <th className="p-3 bg-olive-200">
-                                        Email
-                                    </th>
-                                    <th className="p-3 bg-olive-200">
-                                        Role
-                                    </th>
-                                    <th className="p-3 text-center w-28 bg-olive-200">
-                                        Aksi
-                                    </th>
+                                    <th className="p-3 w-16 bg-olive-200">ID</th>
+                                    <th className="p-3 bg-olive-200">Nama</th>
+                                    <th className="p-3 bg-olive-200">Email</th>
+                                    <th className="p-3 bg-olive-200">Role</th>
+                                    <th className="p-3 text-center w-28 bg-olive-200">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -96,7 +97,9 @@ export default function UsersPage() {
                                             colSpan={5}
                                             className="p-4 text-center text-olive-500 font-semibold italic"
                                         >
-                                            Belum ada data user.
+                                            {searchName
+                                                ? `User dengan nama "${searchName}" tidak ditemukan.`
+                                                : "Belum ada data user."}
                                         </td>
                                     </tr>
                                 ) : (
@@ -116,31 +119,20 @@ export default function UsersPage() {
                                             </td>
                                             <td className="p-3 font-bold">
                                                 <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-olive-200 border border-black">
-                                                    {item.role?.name ||
-                                                        getRoleName(
-                                                            item.role_id,
-                                                        )}
+                                                    {item.role?.name || getRoleName(item.role_id)}
                                                 </span>
                                             </td>
                                             <td className="p-3">
                                                 <div className="flex justify-center gap-2">
                                                     <button
-                                                        onClick={() =>
-                                                            handleOpenEditModal(
-                                                                item,
-                                                            )
-                                                        }
+                                                        onClick={() => handleOpenEditModal(item)}
                                                         className="p-1.5 bg-amber-300 border border-black hover:bg-amber-400 cursor-pointer"
                                                         title="Edit"
                                                     >
                                                         <Edit3 size={14} />
                                                     </button>
                                                     <button
-                                                        onClick={() =>
-                                                            handleDelete(
-                                                                item.id,
-                                                            )
-                                                        }
+                                                        onClick={() => handleDelete(item.id)}
                                                         className="p-1.5 bg-rose-400 text-white border border-black hover:bg-rose-500 cursor-pointer"
                                                         title="Hapus"
                                                     >

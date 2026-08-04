@@ -7,6 +7,8 @@ import {
     Loader2,
     Trash2,
     Sparkles,
+    Search,
+    X
 } from "lucide-react";
 import { flowService } from "@/services/flowService";
 import { aiService } from "@/services/aiService"; // Import service AI
@@ -15,6 +17,9 @@ export default function FlowListPage() {
     const navigate = useNavigate();
     const [flows, setFlows] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    // State Search
+    const [searchQuery, setSearchQuery] = useState("");
 
     // Modal Create Flow State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -28,22 +33,33 @@ export default function FlowListPage() {
     const [deletingFlow, setDeletingFlow] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const fetchFlows = async () => {
+    // Fetch Flow berdasarkan nama / query
+    const fetchFlows = async (query = "") => {
         try {
             setIsLoading(true);
-            const res = await flowService.getFlows();
+            const res = await flowService.getFlows(query);
             const flowData = res?.data?.data || res?.data || res || [];
             setFlows(Array.isArray(flowData) ? flowData : []);
         } catch (err) {
             console.error("Gagal mengambil daftar flow:", err);
+            setFlows([]);
         } finally {
             setIsLoading(false);
         }
     };
 
+    // Debounce effect untuk live search
     useEffect(() => {
-        fetchFlows();
-    }, []);
+        const timer = setTimeout(() => {
+            fetchFlows(searchQuery);
+        }, 300); // delay 300ms
+
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // useEffect(() => {
+    //     fetchFlows();
+    // }, []);
 
     // Handler AI untuk generate deskripsi otomatis via Gemini
     const handleAIGenerate = async () => {
@@ -119,7 +135,7 @@ export default function FlowListPage() {
     };
 
     return (
-        <div className="w-full min-h-screen bg-olive-100 flex flex-col p-8 relative">
+        <div className="w-full min-h-screen bg-olive-50 flex flex-col p-8 relative">
             <div className="flex justify-between items-end mb-10 border-b-4 border-olive-900 pb-4">
                 <div>
                     <h1 className="text-3xl font-extrabold text-olive-900 tracking-tight">
@@ -130,12 +146,68 @@ export default function FlowListPage() {
                     </p>
                 </div>
 
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    {/* Input Search */}
+                    <div className="relative flex-1 md:w-72">
+                        <Search
+                            size={18}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-olive-700 pointer-events-none"
+                        />
+                        <input
+                            type="text"
+                            placeholder="Cari flow berdasarkan nama..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-8 py-2.5 bg-white border-2 border-olive-900 text-sm font-semibold text-olive-900 placeholder:text-olive-400 outline-none shadow-[4px_4px_0px_rgba(0,0,0,1)] focus:shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-all rounded-sm"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery("")}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-olive-600 hover:text-olive-900 cursor-pointer"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Button Create */}
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-sm bg-green-500 text-white font-bold border-2 border-olive-900 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-green-700 active:translate-y-1 active:shadow-none transition-all cursor-pointer whitespace-nowrap"
+                    >
+                        <Plus size={18} /> New Flow
+                    </button>
+                </div>
+
+                {/* Input Search
+                <div className="relative flex-1 md:w-72">
+                    <Search
+                        size={18}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-olive-700 pointer-events-none"
+                    />
+                    <input
+                        type="text"
+                        placeholder="Cari flow berdasarkan nama..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-8 py-2 bg-white border-2 border-olive-900 text-sm font-semibold text-olive-900 placeholder:text-olive-400 outline-none shadow-[2px_2px_0px_rgba(0,0,0,1)] focus:shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-all"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-olive-600 hover:text-olive-900 cursor-pointer"
+                        >
+                            <X size={16} />
+                        </button>
+                    )}
+                </div>
+
                 <button
                     onClick={() => setIsModalOpen(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white font-bold border-2 border-olive-900 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-green-700 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                 >
                     <Plus size={18} /> New Flow
-                </button>
+                </button> */}
             </div>
 
             {isLoading ? (
@@ -144,7 +216,7 @@ export default function FlowListPage() {
                     flow...
                 </div>
             ) : flows.length === 0 ? (
-                <div className="bg-white border-4 border-olive-900 p-8 text-center font-bold text-olive-800 shadow-[6px_6px_0px_rgba(0,0,0,1)]">
+                <div className="bg-white border-4 rounded-sm border-olive-900 p-8 text-center font-bold text-olive-800 shadow-[6px_6px_0px_rgba(0,0,0,1)]">
                     Belum ada Flow Project. Klik tombol "New Flow" di atas untuk
                     membuat project baru!
                 </div>
@@ -155,7 +227,7 @@ export default function FlowListPage() {
                         return (
                             <div
                                 key={targetId}
-                                className="bg-white border-4 border-olive-900 p-5 flex flex-col gap-4 shadow-[6px_6px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(0,0,0,1)] transition-all cursor-pointer relative group"
+                                className="bg-white border-4 rounded-md border-olive-900 p-5 flex flex-col gap-4 shadow-[6px_6px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(0,0,0,1)] transition-all cursor-pointer relative group"
                                 onClick={() => navigate(`/flows/${targetId}`)}
                             >
                                 <div className="flex justify-between items-start">

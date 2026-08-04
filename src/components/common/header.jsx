@@ -1,8 +1,8 @@
+// src/components/layout/Header.jsx
 import React, { useEffect } from 'react';
 import { User } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { authService } from '../../services/authService';
-import { ROLE_LABELS } from '../../constants/roles'; // <--- Import konstanta berbasis ID
 
 const Header = () => {
     const user = useAuthStore((state) => state.user);
@@ -11,12 +11,14 @@ const Header = () => {
     useEffect(() => {
         const fetchUserData = async () => {
             try {
-                const response = await authService.getMe();
-                if (response && response.data) {
-                    setUser(response.data);
+                // GET /auth/me mengembalikan UserResource (id, name, email, role, modules)
+                const response = await authService.getProfile();
+                const userData = response?.data || response;
+                if (userData) {
+                    setUser(userData);
                 }
             } catch (err) {
-                console.error("Gagal mengambil data user:", err);
+                console.error("Gagal mengambil data user di Header:", err);
             }
         };
 
@@ -25,8 +27,8 @@ const Header = () => {
         }
     }, [user, setUser]);
 
-    // Memetakan role_id (angka) ke label teks yang ramah UI
-    const displayRole = ROLE_LABELS[user?.role_id] || 'Pengguna';
+    // Mengambil role string langsung dari UserResource.php (misal "Admin" atau "User")
+    const displayRole = user?.role || 'Pengguna';
 
     return (
         <header className="h-16 flex px-4 items-center justify-end border-b-2 border-olive-900 bg-white shrink-0">

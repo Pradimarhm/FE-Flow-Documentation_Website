@@ -24,10 +24,20 @@ export const useUser = () => {
     const [formData, setFormData] = useState(INITIAL_FORM);
     const [editingId, setEditingId] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [searchName, setSearchName] = useState('');
 
+    // Debounce 300ms saat user mengetik nama
     useEffect(() => {
-        fetchUsers();
-    }, [fetchUsers]);
+        const timer = setTimeout(() => {
+            fetchUsers(searchName);
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [searchName, fetchUsers]);
+
+    // useEffect(() => {
+    //     fetchUsers();
+    // }, [fetchUsers]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -96,6 +106,8 @@ export const useUser = () => {
         formData,
         editingId,
         isModalOpen,
+        searchName,         // Expose state pencarian ke UI
+        setSearchName, // Expose setter untuk input onChange UI
         handleInputChange,
         handleOpenCreateModal,
         handleOpenEditModal,

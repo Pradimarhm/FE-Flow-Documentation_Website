@@ -2,7 +2,15 @@ import apiClient from "./apiClient";
 
 export const flowService = {
     // Flows CRUD
-    getFlows: () => apiClient.get("/flows"),
+    // getFlows: (name = "") =>
+    //     apiClient.get("/flows", { params: name ? { name } : {} }),
+    // getFlows: () => apiClient.get("/flows"),
+    getFlows: (name = "") => {
+        if (name.trim()) {
+            return apiClient.get("/flows", { params: { name: name.trim() } });
+        }
+        return apiClient.get("/flows");
+    },
     getFlowById: (id) => apiClient.get(`/flows/${id}`),
     createFlow: (payload) => apiClient.post("/flows", payload),
     updateFlow: (id, payload) => apiClient.put(`/flows/${id}`, payload),
@@ -28,6 +36,7 @@ export const flowService = {
             input_data: inputData,
             total_duration_ms: 0,
         }),
+
     getSimulationsByFlow: (flowId) =>
         apiClient.get(`/flows/${flowId}/simulations`),
 

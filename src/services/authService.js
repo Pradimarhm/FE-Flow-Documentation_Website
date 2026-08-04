@@ -4,9 +4,15 @@ import { AUTH_ENDPOINTS } from '../constants/authContants';
 export const authService = {
     async register(userData) {
         try {
-            return await apiClient.post(AUTH_ENDPOINTS.REGISTER, userData);
+            const response = await apiClient.post(AUTH_ENDPOINTS.REGISTER, userData);
+            // Return data JSON dari backend (misal: { success: true, message: "...", data: {...} })
+            return response;
         } catch (error) {
-            throw error.response ? error.response.data : { message: "Network Error" };
+            // Lempar error berupa Object standar agar ditangkap oleh catch di Login.jsx
+            if (error.response && error.response.data) {
+                throw error.response.data; // Berisi { success: false, message: "...", errors: {...} }
+            }
+            throw { message: "Network Error / Server tidak merespon" };
         }
     },
 

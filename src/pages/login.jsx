@@ -56,43 +56,10 @@ export default function Login() {
         return () => window.removeEventListener("mousemove", handleMouseMove);
     }, []);
 
-    // Tambahan state error detail untuk popup
-    // const [errorPopup, setErrorPopup] = useState({ isOpen: false, title: "", message: "", errors: null });
-    // const [email, setEmail] = useState("");
-    // const [password, setPassword] = useState("");
-    // const [confirmPassword, setConfirmPassword] = useState("");
-    // const [isLoading, setIsLoading] = useState(false);
-    // const [error, setError] = useState(null);
-    // const [showPassword, setShowPassword] = useState(false);
-    // const [showSignupPassword, setShowSignupPassword] = useState(false);
-    // const [showSignupConfirmPassword, setShowSignupConfirmPassword] =
-    //   useState(false);
-    // const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-
-    // const wrapperRef = useRef(null);
-
-    // const login = useAuthStore((state) => state.login);
-    // const navigate = useNavigate();
-
-    // Handle mouse move untuk efek parallax
-    // useEffect(() => {
-    //     const handleMouseMove = (e) => {
-    //         if (wrapperRef.current) {
-    //             const rect = wrapperRef.current.getBoundingClientRect();
-    //             const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
-    //             const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
-    //             setMousePosition({ x, y });
-    //         }
-    //     };
-
-    //     window.addEventListener("mousemove", handleMouseMove);
-    //     return () => window.removeEventListener("mousemove", handleMouseMove);
-    // }, []);
-
-    // Tambahan state error detail untuk popup
     const [errorPopup, setErrorPopup] = useState({
         isOpen: false,
         title: "",
+        type: "",
         message: "",
         errors: null,
     });
@@ -106,37 +73,28 @@ export default function Login() {
             // Panggil API Login
             const response = await authService.login({ email, password });
 
-            // Response sukses sesuai kontrak: response.data.access_token & response.data.user[cite: 15]
-            const { token, user } = response.data;
+            // Sesuai UserResource.php:
+            // response.data berisi: { token, user: { id, name, email, role, modules: [...] } }
+            const resData = response.data?.data || response.data || response;
+            const token = resData.token || resData.access_token;
+            const userData = resData.user || resData;
 
-            // KARENA API CLIENT MENGAMBIL TOKEN DARI STORE, KITA HARUS SET TOKEN SEMENTARA
-            // Trik agar apiClient bisa pakai token ini untuk request getUserById selanjutnya
-            useAuthStore.setState({ token: token });
+            // Ekstrak modules/permissions langsung dari UserResource
+            const userModules = userData.modules || [];
 
-            // Eksekusi Rantai Permissions dengan mengoper role_id bawaan dari login
-            const myPermissions = await userService.syncUserPermissions(
-                user.role_id,
-            );
+            // Simpan langsung ke Zustand (token, user, permissions/modules)
+            login(token, userData, userModules);
 
-            // 3. Simpan Semuanya Secara Permanen ke Zustand (sesuai authStore yang direvisi)
-            login(token, user, myPermissions);
-
-            // Simpan ke Zustand Store
-            //   login(access_token, user);
-
-            // Arahkan ke dashboard/flow setelah berhasil
+            // Redirect ke Dashboard / Canvas Flow
             navigate("/");
         } catch (err) {
-            // Hapus token sementara jika rantai gagal di tengah jalan
-            useAuthStore.getState().logout();
-
-            // Tangkap error API (baik invalid input maupun Unauthenticated[cite: 15])
             setErrorPopup({
                 isOpen: true,
                 title: "Gagal Masuk",
+                type: "error",
                 message:
                     err.message ||
-                    "Terjadi kesalahan pada sistem. Email, password, identitas, dan hak akses mungkin gagal diakses",
+                    "Email atau password yang kamu masukkan salah.",
                 errors: err.errors || null,
             });
         } finally {
@@ -149,15 +107,18 @@ export default function Login() {
         setIsLoading(true);
         setError(null);
 
-        // 1. Validasi Password
+        // console.log("--- 1. MULAI REGISTRASI ---");
+
+        // 1. Validasi Kecocokan Password di Frontend
         if (password !== confirmPassword) {
             setErrorPopup({
                 isOpen: true,
-                title: "Validasi Lokal Gagal",
-                message: "Password dan Confirm Password tidak sama.",
-                errors: {
-                    password_confirmation: ["Konfirmasi password tidak cocok."],
-                },
+                type: "error",
+                title: "Validasi Gagal",
+                message: "Password dan Konfirmasi Password tidak sama.",
+                // errors: {
+                //     password_confirmation: ["Konfirmasi password tidak cocok."],
+                // },
             });
             setIsLoading(false);
             return;
@@ -174,43 +135,54 @@ export default function Login() {
                 password_confirmation: confirmPassword,
             };
 
-            // Karena responseInterceptor di apiClient langsung me-return response.data,
-            // hasil dari authService.register(payload) langsung berisi { success, message, data: { token, user } }
+            // console.log("--- 2. KIRIM PAYLOAD KE BACKEND ---", payload);
             const res = await authService.register(payload);
 
-            // Ambil token & user dari response (samakan dengan penamaan properti di handleLogin)
-            const token = res.data?.token || res.data?.access_token;
-            const user = res.data?.user;
+            // console.log("--- 3. RAW RESPONSE DARI SERVICE ---", res);
 
-            if (token && user) {
-                // Set token sementara untuk request permissions
-                useAuthStore.setState({ token: token });
+            // Parsing response (sesuai struktur JSON backend kamu: { success, message, data })
+            const resBody = res.data || res;
+            // console.log("--- 4. PARSED RESBODY ---", resBody);
 
-                // Sync permissions jika user baru punya role_id default
-                let myPermissions = [];
-                if (user.role_id) {
-                    myPermissions = await userService.syncUserPermissions(
-                        user.role_id,
-                    );
-                }
+            // console.log("--- 4. cetak payload success ---", res.success);
 
-                // Simpan ke store Zustand & Redirect
-                login(token, user, myPermissions);
-                navigate("/");
-            } else {
-                // Jika backend registrasi tidak langsung mengembalikan token (hanya kirim pesan sukses)
+            if (res.success == true) {
+                // A. TAMPILKAN POPUP SUKSES
+                // console.log("--- 5. MEMANGGIL setErrorPopup ---");
                 setErrorPopup({
-                    isOpen: false,
-                    title: "Registrasi Berhasil",
-                    message: "Akun berhasil dibuat. Silakan login.",
+                    isOpen: true, // Wajib true agar modal muncul
+                    title: "Registrasi Berhasil!",
+                    type: "success",
+                    message: `Akun ${resBody.data?.email || email} berhasil terdaftar. Silakan masuk dengan akun kamu.`,
+                    // errors: null,
                 });
-                // Kamu bisa kembalikan flip card ke mode login di sini jika ada state-nya
+
+                // B. BERSIHKAN FORM PASSWORDS
+                setPassword("");
+                setConfirmPassword("");
+
+                // C. OTOMATIS GESER CARD KE TAB "MASUK AKUN"
+                const toggleSwitch = document.getElementById("toggle-auth");
+                if (toggleSwitch) {
+                    toggleSwitch.checked = false;
+                }
             }
         } catch (err) {
+            console.error("--- X. MASUK KE CATCH ERROR ---", err);
+            // Tangani Error Jika Terjadi Failure / Validasi Backend
+            let customMessage = err.message || "Data registrasi tidak valid.";
+            if (err.errors) {
+                const firstErrorKey = Object.keys(err.errors)[0];
+                if (firstErrorKey && err.errors[firstErrorKey][0]) {
+                    customMessage = err.errors[firstErrorKey][0];
+                }
+            }
+
             setErrorPopup({
                 isOpen: true,
                 title: "Gagal Registrasi",
-                message: err.message || "Data registrasi tidak valid.",
+                type: "error",
+                message: customMessage,
                 errors: err.errors || null,
             });
         } finally {
@@ -226,52 +198,53 @@ export default function Login() {
         >
             {/* Grid Dots layer 1 - dulu .wrapper::before */}
             <div
-                className="fixed inset-0 opacity-100 z-0 pointer-events-none transition-transform duration-150 ease-[cubic-bezier(0.2,0,0,1)] will-change-transform bg-[radial-gradient(circle,_#b9b9b9_1.5px,_transparent_2px)] [background-size:32px_32px]"
+                className="fixed inset-0 opacity-100 z-0 pointer-events-none transition-transform duration-150 ease-[cubic-bezier(0.2,0,0,1)] will-change-transform bg-[radial-gradient(circle,#b9b9b9_1.5px,transparent_2px)] bg-size-[32px_32px]"
                 style={{
                     transform: `translate(${mousePosition.x * 15}px, ${mousePosition.y * 15}px)`,
                 }}
             />
             {/* Grid Dots layer 2 (depth) - dulu .wrapper::after */}
             <div
-                className="fixed inset-0 opacity-100 z-0 pointer-events-none transition-transform duration-200 ease-[cubic-bezier(0.2,0,0,1)] will-change-transform bg-[radial-gradient(circle,_#c9c9c9_1px,_transparent_1px)] [background-size:64px_64px]"
+                className="fixed inset-0 opacity-100 z-0 pointer-events-none transition-transform duration-200 ease-[cubic-bezier(0.2,0,0,1)] will-change-transform bg-[radial-gradient(circle,#b9b9b9_1.5px,transparent_2px)] bg-size-[64px_64px]"
                 style={{
                     transform: `translate(${mousePosition.x * 25}px, ${mousePosition.y * 25}px)`,
                 }}
             />
 
-            <div className="flex-1 flex justify-center items-center px-5 py-10 relative z-[1]">
-                <div className="relative z-[1]">
-                    <label className="relative flex flex-col justify-center items-center gap-10 w-[70px] h-7 -translate-y-[250px]">
+            <div className="flex-1 flex justify-center items-center px-5 py-10 relative z-1">
+                <div className="relative z-1">
+                    <label className="relative flex flex-col justify-center items-center gap-10 w-17.5 h-7 -translate-y-62.5">
                         <input
                             type="checkbox"
                             className="peer opacity-0 w-0 h-0"
                         />
-                        <span className="peer-checked:bg-[var(--input-focus)] bg-transparent transition-colors duration-300 box-border rounded-lg border-[3px] border-[var(--main-color)] shadow-[6px_6px_var(--main-color)] absolute cursor-pointer inset-0 w-[70px] h-7 before:content-[''] before:box-border before:absolute before:h-7 before:w-7 before:border-[3px] before:border-[var(--main-color)] before:rounded-lg before:left-[-3px] before:bottom-[-1px] before:bg-[var(--bg-color)] before:shadow-[0_4px_0_var(--main-color)] before:transition-transform before:duration-300 peer-checked:before:translate-x-[42px]" />
-                        <span className="relative before:content-['Log_in'] before:absolute before:-left-[130px] before:top-0 before:w-[140px] before:underline before:text-[var(--font-color)] before:font-semibold before:text-[23px] peer-checked:before:no-underline after:content-['Sign_up'] after:absolute after:left-[70px] after:top-0 after:w-[140px] after:no-underline after:text-[var(--font-color)] after:font-semibold after:text-[23px] peer-checked:after:underline" />
-                        <div className="peer-checked:[transform:rotateY(180deg)] w-[420px] h-[560px] relative bg-transparent [perspective:1000px] text-center transition-transform duration-[800ms] [transform-style:preserve-3d]">
-                            <div className="flip-card-face p-[35px] absolute flex flex-col justify-center [backface-visibility:hidden] bg-[#f0f0f0] gap-5 rounded-[10px] border-[3px] border-[var(--main-color)] shadow-[8px_8px_var(--main-color)]">
+                        <span className="peer-checked:bg-(--input-focus) bg-transparent transition-colors duration-300 box-border rounded-lg border-[3px] border-(--main-color) shadow-[6px_6px_var(--main-color)] absolute cursor-pointer inset-0 w-17.5 h-7 before:content-[''] before:box-border before:absolute before:h-7 before:w-7 before:border-[3px] before:border-(--main-color) before:rounded-lg before:-left-0.75 before:-bottom-px before:bg-(--bg-color) before:shadow-[0_4px_0_var(--main-color)] before:transition-transform before:duration-300 peer-checked:before:translate-x-10.5" />
+                        <span className="relative before:content-['Masuk_Akun'] before:absolute before:-left-45 before:top-0 before:w-35 before:underline before:text-(--font-color) before:font-semibold before:text-[23px] peer-checked:before:no-underline after:content-['Daftar_Akun'] after:absolute after:left-17.5 after:top-0 after:w-35 after:no-underline after:text-(--font-color) after:font-semibold after:text-[23px] peer-checked:after:underline" />
+                        {/* Pembungkus Switch Toggle & Label yang Tertata Rapi */}
+                        <div className="peer-checked:transform-[rotateY(180deg)] w-105 h-140 relative bg-transparent perspective-[1000px] text-center transition-transform duration-800 transform-3d">
+                            <div className="flip-card-face p-8.75 absolute flex flex-col justify-center backface-hidden bg-[#f0f0f0] gap-5 rounded-[10px] border-[3px] border-(--main-color) shadow-[8px_8px_var(--main-color)]">
                                 {/* Logo di atas Welcome */}
                                 <div className="flex justify-center items-center mb-2">
                                     <img
                                         src={logoApp}
                                         alt="FlowDoc Logo"
-                                        className="w-[70px] h-[70px] object-contain rounded-lg border-[3px] border-[var(--main-color)] shadow-[4px_4px_0_var(--main-color)] bg-white p-2"
+                                        className="w-17.5 h-17.5 object-contain rounded-lg border-[3px] border-(--main-color) shadow-[4px_4px_0_var(--main-color)] bg-white p-2"
                                     />
                                 </div>
-                                <div className="mb-[5px] text-[32px] font-black text-center text-[var(--main-color)]">
+                                <div className="mb-1.25 text-[32px] font-black text-center text-(--main-color)">
                                     Welcome FlowTech!
                                 </div>
                                 {error && (
-                                    <div className="bg-[#fee2e2] text-[#dc2626] px-[15px] py-[10px] rounded-lg text-base font-semibold w-full text-center border-2 border-[#dc2626] box-border">
+                                    <div className="bg-[#fee2e2] text-[#dc2626] px-3.75 py-2.5 rounded-lg text-base font-semibold w-full text-center border-2 border-[#dc2626] box-border">
                                         {error}
                                     </div>
                                 )}
                                 <form
-                                    className="flex flex-col items-center gap-[26px]"
+                                    className="flex flex-col items-center gap-6.5"
                                     onSubmit={handleLogin}
                                 >
                                     <input
-                                        className="w-full h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-[var(--font-color)] px-[15px] pr-[45px] outline-none box-border placeholder:text-[var(--font-color-sub)] placeholder:opacity-80 focus:border-[var(--input-focus)]"
+                                        className="w-full h-13 rounded-lg border-[3px] border-(--main-color) bg-(--bg-color) shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-(--font-color) px-3.75 pr-11.25 outline-none box-border placeholder:text-(--font-color-sub) placeholder:opacity-80 focus:border-(--input-focus)"
                                         name="email"
                                         placeholder="Email"
                                         type="email"
@@ -281,9 +254,9 @@ export default function Login() {
                                         }
                                         required
                                     />
-                                    <div className="relative w-[340px]">
+                                    <div className="relative w-85">
                                         <input
-                                            className="w-full h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-[var(--font-color)] px-[15px] pr-[45px] outline-none box-border placeholder:text-[var(--font-color-sub)] placeholder:opacity-80 focus:border-[var(--input-focus)]"
+                                            className="w-full h-13 rounded-lg border-[3px] border-(--main-color) bg-(--bg-color) shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-(--font-color) px-3.75 pr-11.25 outline-none box-border placeholder:text-(--font-color-sub) placeholder:opacity-80 focus:border-(--input-focus)"
                                             name="password"
                                             placeholder="Password"
                                             type={
@@ -299,7 +272,7 @@ export default function Login() {
                                         />
                                         <button
                                             type="button"
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-[var(--font-color-sub)] p-1 flex items-center justify-center opacity-70 transition-opacity duration-200 hover:opacity-100"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-(--font-color-sub) p-1 flex items-center justify-center opacity-70 transition-opacity duration-200 hover:opacity-100"
                                             onClick={() =>
                                                 setShowPassword(!showPassword)
                                             }
@@ -329,120 +302,39 @@ export default function Login() {
                                             )}
                                         </button>
                                     </div>
-                                    <div className="w-[340px] text-center -mt-3">
+                                    <div className="w-85 text-right -mt-5">
                                         <button
                                             type="button"
                                             onClick={() =>
                                                 navigate("/forgot-password")
                                             }
-                                            className="bg-transparent border-none p-0 cursor-pointer text-sm font-semibold text-[var(--input-focus)] underline hover:opacity-80"
+                                            className="bg-transparent border-none p-0 cursor-pointer text-sm font-semibold text-(--input-focus) underline hover:opacity-80"
                                         >
-                                            Forgot password?
+                                            Lupa password?
                                         </button>
                                     </div>
                                     <button
-                                        className="my-[15px] w-[170px] h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-xl font-semibold text-[var(--font-color)] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed active:shadow-[0px_0px_var(--main-color)] active:translate-x-1 active:translate-y-1"
+                                        className="my-3.75 w-42.5 h-13 rounded-lg border-[3px] border-(--main-color) bg-(--bg-color) shadow-[6px_6px_var(--main-color)] text-xl font-semibold text-(--font-color) cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed active:shadow-[0px_0px_var(--main-color)] active:translate-x-1 active:translate-y-1"
                                         type="submit"
                                         disabled={isLoading}
                                     >
-                                        {isLoading ? "Loading..." : "Let`s go!"}
-                                    </button>
-                                </form>
-                            </div>
-                            <div className="flip-card-face w-full [transform:rotateY(180deg)] p-[35px] absolute flex flex-col justify-center [backface-visibility:hidden] bg-[#f0f0f0] gap-5 rounded-[10px] border-[3px] border-[var(--main-color)] shadow-[8px_8px_var(--main-color)]">
-                                <div className="mb-[5px] text-[32px] font-black text-center text-[var(--main-color)]">
-                                    Sign up
-                                </div>
-                                {error && (
-                                    <div className="bg-[#fee2e2] text-[#dc2626] px-[15px] py-[10px] rounded-lg text-base font-semibold w-full text-center border-2 border-[#dc2626] box-border">
-                                        {error}
-                                    </div>
-                                )}
-                                <form
-                                    className="flex flex-col items-center gap-[26px]"
-                                    onSubmit={handleLogin}
-                                >
-                                    <input
-                                        className="w-full h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-[var(--font-color)] px-[15px] pr-[45px] outline-none box-border placeholder:text-[var(--font-color-sub)] placeholder:opacity-80 focus:border-[var(--input-focus)]"
-                                        name="email"
-                                        placeholder="Email"
-                                        type="email"
-                                        value={email}
-                                        onChange={(e) =>
-                                            setEmail(e.target.value)
-                                        }
-                                        required
-                                    />
-                                    <div className="relative w-[340px]">
-                                        <input
-                                            className="w-full h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-[var(--font-color)] px-[15px] pr-[45px] outline-none box-border placeholder:text-[var(--font-color-sub)] placeholder:opacity-80 focus:border-[var(--input-focus)]"
-                                            name="password"
-                                            placeholder="Password"
-                                            type={
-                                                showPassword
-                                                    ? "text"
-                                                    : "password"
-                                            }
-                                            value={password}
-                                            onChange={(e) =>
-                                                setPassword(e.target.value)
-                                            }
-                                            required
-                                        />
-                                        <button
-                                            type="button"
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-[var(--font-color-sub)] p-1 flex items-center justify-center opacity-70 transition-opacity duration-200 hover:opacity-100"
-                                            onClick={() =>
-                                                setShowPassword(!showPassword)
-                                            }
-                                        >
-                                            {showPassword ? (
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    width="20"
-                                                    height="20"
-                                                >
-                                                    <path
-                                                        fill="currentColor"
-                                                        d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
-                                                    />
-                                                </svg>
-                                            ) : (
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    width="20"
-                                                    height="20"
-                                                >
-                                                    <path
-                                                        fill="currentColor"
-                                                        d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"
-                                                    />
-                                                </svg>
-                                            )}
-                                        </button>
-                                    </div>
-                                    <button
-                                        className="my-[15px] w-[170px] h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-xl font-semibold text-[var(--font-color)] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed active:shadow-[0px_0px_var(--main-color)] active:translate-x-1 active:translate-y-1"
-                                        type="submit"
-                                        disabled={isLoading}
-                                    >
-                                        {isLoading ? "Loading..." : "Let`s go!"}
+                                        {isLoading ? "Loading..." : "Masuk!"}
                                     </button>
                                 </form>
                             </div>
                             {/* SIGN UP FACE */}
-                            <div className="flip-card-face w-full [transform:rotateY(180deg)] p-[35px] absolute flex flex-col justify-center [backface-visibility:hidden] bg-[#f0f0f0] gap-5 rounded-[10px] border-[3px] border-[var(--main-color)] shadow-[8px_8px_var(--main-color)]">
-                                <div className="mb-[5px] text-[32px] font-black text-center text-[var(--main-color)]">
-                                    Sign up
+                            <div className="flip-card-face w-full transform-[rotateY(180deg)] p-8.75 absolute flex flex-col justify-center backface-hidden bg-[#f0f0f0] gap-5 rounded-[10px] border-[3px] border-(--main-color) shadow-[8px_8px_var(--main-color)]">
+                                <div className="mb-1.25 text-[32px] font-black text-center text-(--main-color)">
+                                    Pendaftaran Akun
                                 </div>
 
                                 <form
-                                    className="flex flex-col items-center gap-[26px]"
+                                    className="flex flex-col items-center gap-6.5"
                                     onSubmit={handleSignUp}
                                 >
                                     {/* Input Email */}
                                     <input
-                                        className="w-full h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-[var(--font-color)] px-[15px] pr-[45px] outline-none box-border placeholder:text-[var(--font-color-sub)] placeholder:opacity-80 focus:border-[var(--input-focus)]"
+                                        className="w-full h-13 rounded-lg border-[3px] border-(--main-color) bg-(--bg-color) shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-(--font-color) px-3.75 pr-11.25 outline-none box-border placeholder:text-(--font-color-sub) placeholder:opacity-80 focus:border-(--input-focus)"
                                         name="email"
                                         placeholder="Email"
                                         type="email"
@@ -454,9 +346,9 @@ export default function Login() {
                                     />
 
                                     {/* Input Password */}
-                                    <div className="relative w-[340px]">
+                                    <div className="relative w-85">
                                         <input
-                                            className="w-full h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-[var(--font-color)] px-[15px] pr-[45px] outline-none box-border placeholder:text-[var(--font-color-sub)] placeholder:opacity-80 focus:border-[var(--input-focus)]"
+                                            className="w-full h-13 rounded-lg border-[3px] border-(--main-color) bg-(--bg-color) shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-(--font-color) px-3.75 pr-11.25 outline-none box-border placeholder:text-(--font-color-sub) placeholder:opacity-80 focus:border-(--input-focus)"
                                             name="password"
                                             placeholder="Password"
                                             type={
@@ -472,7 +364,7 @@ export default function Login() {
                                         />
                                         <button
                                             type="button"
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-[var(--font-color-sub)] p-1 flex items-center justify-center opacity-70 transition-opacity duration-200 hover:opacity-100"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-(--font-color-sub) p-1 flex items-center justify-center opacity-70 transition-opacity duration-200 hover:opacity-100"
                                             onClick={() =>
                                                 setShowSignupPassword(
                                                     !showSignupPassword,
@@ -484,11 +376,11 @@ export default function Login() {
                                     </div>
 
                                     {/* Input Confirm Password */}
-                                    <div className="relative w-[340px]">
+                                    <div className="relative w-85">
                                         <input
-                                            className="w-full h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-[var(--font-color)] px-[15px] pr-[45px] outline-none box-border placeholder:text-[var(--font-color-sub)] placeholder:opacity-80 focus:border-[var(--input-focus)]"
-                                            name="confirmPassword"
-                                            placeholder="Confirm Password"
+                                            className="w-full h-13 rounded-lg border-[3px] border-(--main-color) bg-(--bg-color) shadow-[6px_6px_var(--main-color)] text-lg font-semibold text-(--font-color) px-3.75 pr-11.25 outline-none box-border placeholder:text-(--font-color-sub) placeholder:opacity-80 focus:border-(--input-focus)"
+                                            name="konfirmasiPassword"
+                                            placeholder="Konfirmasi Password"
                                             type={
                                                 showSignupConfirmPassword
                                                     ? "text"
@@ -504,7 +396,7 @@ export default function Login() {
                                         />
                                         <button
                                             type="button"
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-[var(--font-color-sub)] p-1 flex items-center justify-center opacity-70 transition-opacity duration-200 hover:opacity-100"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-(--font-color-sub) p-1 flex items-center justify-center opacity-70 transition-opacity duration-200 hover:opacity-100"
                                             onClick={() =>
                                                 setShowSignupConfirmPassword(
                                                     !showSignupConfirmPassword,
@@ -516,11 +408,13 @@ export default function Login() {
                                     </div>
 
                                     <button
-                                        className="my-[15px] w-[170px] h-[52px] rounded-lg border-[3px] border-[var(--main-color)] bg-[var(--bg-color)] shadow-[6px_6px_var(--main-color)] text-xl font-semibold text-[var(--font-color)] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed active:shadow-[0px_0px_var(--main-color)] active:translate-x-1 active:translate-y-1"
+                                        className="my-3.75 w-42.5 h-13 rounded-lg border-[3px] border-(--main-color) bg-(--bg-color) shadow-[6px_6px_var(--main-color)] text-xl font-semibold text-(--font-color) cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed active:shadow-[0px_0px_var(--main-color)] active:translate-x-1 active:translate-y-1"
                                         type="submit"
                                         disabled={isLoading}
                                     >
-                                        {isLoading ? "Loading..." : "Confirm!"}
+                                        {isLoading
+                                            ? "Loading..."
+                                            : "Daftarkan!"}
                                     </button>
                                 </form>
                             </div>
@@ -530,23 +424,27 @@ export default function Login() {
             </div>
 
             {/* Footer */}
-            <footer className="relative z-[1] w-full bg-[#e8e8e8] border-t-[3px] border-[var(--main-color)] py-4 mt-auto">
-                <div className="max-w-[1200px] mx-auto px-10 text-center">
-                    <p className="text-sm font-semibold text-[var(--font-color-sub)] m-0">
+            <footer className="relative z-1 w-full bg-[#e8e8e8] border-t-[3px] border-(--main-color) py-4 mt-auto">
+                <div className="max-w-300 mx-auto px-10 text-center">
+                    <p className="text-sm font-semibold text-(--font-color-sub) m-0">
                         © 2026 FlowTech. Jember State Polytechnic Internship
                         Team.
                     </p>
                 </div>
             </footer>
 
-            {/* Komponen Popup Error Neo-Brutalisme */}
-            <ErrorPopup
-                isOpen={errorPopup.isOpen}
-                onClose={() => setErrorPopup({ ...errorPopup, isOpen: false })}
-                title={errorPopup.title}
-                message={errorPopup.message}
-                errors={errorPopup.errors}
-            />
+            <div className="relative z-99999">
+                <ErrorPopup
+                    isOpen={errorPopup.isOpen}
+                    onClose={() =>
+                        setErrorPopup({ ...errorPopup, isOpen: false })
+                    }
+                    title={errorPopup.title}
+                    type={errorPopup.type}
+                    message={errorPopup.message}
+                    errors={errorPopup.errors}
+                />
+            </div>
         </div>
     );
 }

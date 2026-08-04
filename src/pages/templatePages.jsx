@@ -79,13 +79,25 @@ export default function TemplatesPage() {
         try {
             let parsedInput = {};
             let parsedOutput = {};
+
+            // Parse Safe dengan Fallback Objek Kosong
             try {
-                parsedInput = JSON.parse(formData.default_input_params);
-                parsedOutput = JSON.parse(formData.default_output_template);
-            } catch (jsonErr) {
-                alert(
-                    "Format default_input_params atau default_output_template harus JSON valid!",
-                );
+                parsedInput =
+                    typeof formData.default_input_params === "string"
+                        ? JSON.parse(formData.default_input_params)
+                        : formData.default_input_params;
+            } catch (e) {
+                alert("Format JSON pada Default Input Params tidak valid!");
+                return;
+            }
+
+            try {
+                parsedOutput =
+                    typeof formData.default_output_template === "string"
+                        ? JSON.parse(formData.default_output_template)
+                        : formData.default_output_template;
+            } catch (e) {
+                alert("Format JSON pada Default Output Template tidak valid!");
                 return;
             }
 
@@ -100,14 +112,7 @@ export default function TemplatesPage() {
 
             await templateService.createTemplate(payload);
             setIsModalOpen(false);
-            setFormData({
-                name: "",
-                node_type: "process",
-                default_input_params: "{}",
-                default_validation: "",
-                default_process_logic: "",
-                default_output_template: "{}",
-            });
+            // Reset form...
             fetchTemplates();
         } catch (err) {
             console.error("Gagal buat template:", err);
@@ -125,7 +130,7 @@ export default function TemplatesPage() {
     };
 
     return (
-        <div className="p-6 bg-olive-100 min-h-screen">
+        <div className="p-6 bg-olive-50 min-h-screen">
             <div className="flex justify-between items-center mb-10 pb-4 border-b-4">
                 <div>
                     <h1 className="text-3xl font-extrabold text-olive-900 tracking-tight">
@@ -137,7 +142,7 @@ export default function TemplatesPage() {
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xs bg-green-500 text-green-50 text-xs font-bold border-2 border-olive-900 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-green-700 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-sm bg-green-500 text-green-50 text-xs font-bold border-2 border-olive-900 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-green-700 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                 >
                     <Plus size={16} /> Tambah Template
                 </button>
@@ -159,13 +164,13 @@ export default function TemplatesPage() {
                         return (
                             <div
                                 key={item.id}
-                                className="p-4 bg-white border-2 border-olive-900 shadow-[4px_4px_0px_rgba(0,0,0,1)] flex flex-col justify-between gap-3"
+                                className="p-4 bg-white border-2 border-olive-900 shadow-[4px_4px_0px_rgba(0,0,0,1)] flex flex-col justify-between gap-3 rounded-sm"
                             >
                                 <div>
                                     <div className="flex justify-between items-start gap-2">
                                         <div className="flex items-center gap-2">
                                             <div
-                                                className={`p-1.5 border-2 border-black ${typeConfig.badgeColor}`}
+                                                className={`p-1.5 rounded-xs border-2 border-black ${typeConfig.badgeColor}`}
                                             >
                                                 <IconComponent
                                                     size={16}
@@ -178,13 +183,13 @@ export default function TemplatesPage() {
                                         </div>
 
                                         <span
-                                            className={`text-[10px] font-black uppercase px-2 py-0.5 border border-black ${typeConfig.badgeColor}`}
+                                            className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-xs border border-black ${typeConfig.badgeColor}`}
                                         >
                                             {item.node_type}
                                         </span>
                                     </div>
 
-                                    <div className="mt-3 text-[10px] bg-slate-50 p-2 border-2 border-black font-mono overflow-x-auto max-h-24">
+                                    <div className="mt-3 text-[10px] bg-slate-50 p-2 rounded-sm border-2 border-black font-mono overflow-x-auto max-h-24">
                                         <p className="font-bold text-black mb-1">
                                             Input Params:
                                         </p>

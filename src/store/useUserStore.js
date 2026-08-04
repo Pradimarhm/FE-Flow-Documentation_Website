@@ -7,13 +7,16 @@ export const useUserStore = create((set, get) => ({
     isLoading: false,
     error: null,
     validationErrors: null,
+    searchQuery: '',
 
-    fetchUsers: async () => {
-        set({ isLoading: true, error: null });
+    // Ambil users dengan dukungan parameter name
+    fetchUsers: async (name = "") => {
+        set({ isLoading: true, error: null, searchQuery: name });
         try {
-            const res = await userService.getUsers();
-            // Respon 200 Swagger: { success: true, message: "...", data: [...] }[cite: 1]
-            set({ users: res.data || [], isLoading: false });
+            const res = await userService.getUsers(name);
+            // Mengikuti struktur response Laravel/Swagger { data: [...] }
+            const data = res?.data?.data || res?.data || res || [];
+            set({ users: Array.isArray(data) ? data : [], isLoading: false });
         } catch (err) {
             set({
                 error: err.response?.data?.message || err.message || 'Gagal mengambil data user',
@@ -22,12 +25,27 @@ export const useUserStore = create((set, get) => ({
         }
     },
 
+    // fetchUsers: async () => {
+    //     set({ isLoading: true, error: null });
+    //     try {
+    //         const res = await userService.getUsers();
+    //         // Respon 200 Swagger: { success: true, message: "...", data: [...] }[cite: 1]
+    //         set({ users: res.data || [], isLoading: false });
+    //     } catch (err) {
+    //         set({
+    //             error: err.response?.data?.message || err.message || 'Gagal mengambil data user',
+    //             isLoading: false,
+    //         });
+    //     }
+    // },
+
     addUser: async (payload) => {
         set({ isLoading: true, validationErrors: null, error: null });
         try {
             await userService.createUser(payload);
             set({ isLoading: false });
-            get().fetchUsers();
+            // get().fetchUsers();
+            get().fetchUsers(get().searchQuery);
             return { success: true };
         } catch (err) {
             const status = err.response?.status;
@@ -51,7 +69,8 @@ export const useUserStore = create((set, get) => ({
         try {
             await userService.updateUser(id, payload);
             set({ isLoading: false });
-            get().fetchUsers();
+            // get().fetchUsers();
+            get().fetchUsers(get().searchQuery);
             return { success: true };
         } catch (err) {
             const status = err.response?.status;
@@ -74,7 +93,8 @@ export const useUserStore = create((set, get) => ({
         try {
             await userService.deleteUser(id);
             set({ isLoading: false });
-            get().fetchUsers();
+            // get().fetchUsers();
+            get().fetchUsers(get().searchQuery);
             return { success: true };
         } catch (err) {
             set({

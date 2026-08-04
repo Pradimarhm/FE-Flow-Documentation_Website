@@ -183,9 +183,9 @@ export default function PermissionsPage() {
 
     return (
         /* Menggunakan h-screen & overflow-hidden agar halaman pas 1 layar */
-        <div className="w-full h-full bg-olive-100 p-6 flex flex-col gap-6 overflow-hidden">
+        <div className="w-full h-full bg-olive-50 p-6 flex flex-col gap-6 overflow-hidden">
             {/* Header (Ukuran Tetap) */}
-            <div className="flex-none flex flex-row justify-between items-center bg-olive-50 p-4 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
+            <div className="flex-none flex flex-row justify-between items-center bg-olive-50 p-4 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
                 <div>
                     <h1 className="text-xl font-black text-olive-900 uppercase tracking-wide flex items-center gap-2">
                         <ShieldCheck size={24} /> Manajemen Permission
@@ -197,14 +197,14 @@ export default function PermissionsPage() {
                 <div className="flex gap-2">
                     <button
                         onClick={() => fetchPermissions()}
-                        className="p-2 bg-white border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-olive-200 cursor-pointer"
+                        className="p-2.5 bg-white rounded-sm border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-olive-200 cursor-pointer"
                         title="Refresh"
                     >
                         <RefreshCw size={16} />
                     </button>
                     <button
                         onClick={openCreateModal}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white font-bold text-xs border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:bg-green-600 active:translate-y-0.5 active:shadow-none cursor-pointer"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-green-500 text-white font-bold text-xs rounded-sm border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:bg-green-600 active:translate-y-0.5 active:shadow-none cursor-pointer"
                     >
                         <Plus size={16} /> Tambah Permission
                     </button>
@@ -212,7 +212,7 @@ export default function PermissionsPage() {
             </div>
 
             {/* Area Tabel fleksibel mengisi sisa tinggi layar & bisa discroll internal */}
-            <div className="flex bg-white p-5 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] overflow-y-auto">
+            <div className="flex bg-white p-5 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] overflow-y-auto">
                 {isLoading ? (
                     <div className="flex w-full justify-center items-center gap-2 text-olive-800 font-bold">
                         <Loader2 size={20} className="animate-spin" /> Memuat

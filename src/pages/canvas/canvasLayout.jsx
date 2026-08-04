@@ -24,13 +24,15 @@ export default function CanvasLayout() {
     const [isRunning, setIsRunning] = useState(false);
     const [logs, setLogs] = useState([]);
     const [executionStatus, setExecutionStatus] = useState({});
-    // Edge yang SEDANG dilewati "token" eksekusi (animasi bergerak)
     const [activeEdgeIds, setActiveEdgeIds] = useState(new Set());
-    // Edge yang SUDAH dilewati sebelumnya (jejak jalur, statis)
     const [completedEdgeIds, setCompletedEdgeIds] = useState(new Set());
 
-    // Dipakai untuk membatalkan animasi replay yang sedang berjalan kalau
-    // user klik "Run Simulation" lagi sebelum animasi sebelumnya selesai.
+    // State Modal Simulasi
+    const [isSimModalOpen, setIsSimModalOpen] = useState(false);
+    const [simInputJson, setSimInputJson] = useState(
+        JSON.stringify({ total_belanja: 120000, employee_id: 12 }, null, 2),
+    );
+
     const animationTokenRef = useRef(0);
 
     const [editorApi, setEditorApi] = useState({
@@ -74,7 +76,6 @@ export default function CanvasLayout() {
             window.removeEventListener("beforeunload", handleBeforeUnload);
     }, [editorApi.isDirty]);
 
-    // Matikan animasi yang sedang berjalan kalau komponen unmount
     useEffect(() => {
         return () => {
             animationTokenRef.current += 1;
@@ -103,22 +104,12 @@ export default function CanvasLayout() {
         setLogs((prev) => [...prev, entry]);
     };
 
-    // -----------------------------------------------------------------
-    // SIMULASI EKSEKUSI LOKAL (FALLBACK)
-    // -----------------------------------------------------------------
-    // Backend ternyata cuma MENYIMPAN data yang dikirim, tidak benar-benar
-    // menelusuri graph node satu-satu (`node_executions` bisa kosong, atau
-    // isinya tidak match dengan node yang ada di canvas). Supaya animasi
-    // "node mana yang sedang jalan" tetap bisa ditunjukkan ke user, FE
-    // menelusuri graph-nya SENDIRI:
-    //   1. Cari node awal (kategori "start", atau node tanpa edge masuk).
-    //   2. Urutkan node lain via topological sort (Kahn's algorithm)
-    //      mengikuti arah edge -> node yang dependensinya belum "selesai"
-    //      belum boleh dieksekusi duluan.
-    //   3. Hasilnya dibentuk PERSIS seperti shape `node_executions` dari
-    //      backend, supaya bisa langsung dipakai ulang oleh
-    //      `animateExecution()` tanpa perlu fungsi animasi terpisah.
-    const buildLocalExecutions = (nodesSnapshot, edgesSnapshot) => {
+    // parameter initialInputData di buildLocalExecutions
+    const buildLocalExecutions = (
+        nodesSnapshot,
+        edgesSnapshot,
+        initialInputData = {},
+    ) => {
         const indegree = new Map();
         const outgoing = new Map();
 
@@ -161,11 +152,7 @@ export default function CanvasLayout() {
             ).toLowerCase();
             let edgesToFollow = outgoing.get(node.id) || [];
 
-            // -------------------------------------------------------------
-            // LOGIKA BARU: FILTER KHUSUS NODE CONDITION
-            // -------------------------------------------------------------
             if (category === "condition" && edgesToFollow.length > 0) {
-                // Cari edge yang label-nya 'true'
                 const trueEdge = edgesToFollow.find(
                     (e) =>
                         String(e.label || "")
@@ -174,11 +161,8 @@ export default function CanvasLayout() {
                 );
 
                 if (trueEdge) {
-                    // Jika ketemu cabang true, HANYA lewati jalur true!
                     edgesToFollow = [trueEdge];
                 } else {
-                    // Fallback: Jika user belum set label 'true' di edge manapun,
-                    // ambil edge pertama saja agar tidak jalan dua-duanya.
                     edgesToFollow = [edgesToFollow[0]];
                 }
             }
@@ -196,33 +180,30 @@ export default function CanvasLayout() {
             }
         }
 
-        // CATATAN: Bagian loop di bawah ini (node terputus/unvisited) DIBUANG
-        // agar node di cabang "false" BENAR-BENAR MATI (tidak diikutkan dianimasikan).
+        let currentDataState = { ...initialInputData };
 
-        const baseTime = Date.now();
-        return order.map((node, idx) => ({
-            id: `local-${node.id}`,
-            flow_node_id: node.id,
-            node_label: node.data?.label || node.id,
-            node_type: node.data?.category || node.data?.type || "process",
-            status: "success",
-            input_data: node.data?.config || {},
-            executed_at: new Date(baseTime + idx * 1000).toISOString(),
-        }));
+        return order.map((node, idx) => {
+            const category = (
+                node.data?.category ||
+                node.data?.type ||
+                ""
+            ).toLowerCase();
+            const config = node.data?.config || {};
+
+            let nodeStatus = "success";
+
+            return {
+                id: `local-${node.id}`,
+                flow_node_id: node.id,
+                node_label: node.data?.label || node.id,
+                node_type: category,
+                status: nodeStatus,
+                input_data: { ...currentDataState, _node_config: config },
+                executed_at: new Date(Date.now() + idx * 1000).toISOString(),
+            };
+        });
     };
 
-    // -----------------------------------------------------------------
-    // ANIMASI EKSEKUSI (gaya n8n)
-    // -----------------------------------------------------------------
-    // Backend menjalankan simulasi SECARA SINKRON: satu request POST
-    // langsung mengembalikan seluruh `node_executions` yang sudah selesai
-    // (lihat url_flow.docx — tidak ada status transisi pending -> running
-    // yang bisa di-polling, hasilnya sudah final saat response diterima).
-    //
-    // Supaya tetap terasa "hidup" seperti n8n (node menyala satu-satu,
-    // garis edge mengalir mengikuti urutan eksekusi), animasi ini di-REPLAY
-    // di frontend: node & edge di-highlight satu per satu sesuai urutan
-    // `node_executions`, dengan jeda buatan di antaranya.
     const animateExecution = useCallback(async (simData, edgesSnapshot) => {
         const myToken = ++animationTokenRef.current;
 
@@ -260,31 +241,23 @@ export default function CanvasLayout() {
         let prevExecutedAt = null;
 
         for (const exec of executions) {
-            // Kalau ada run baru yang dimulai (token berubah) atau komponen
-            // unmount, hentikan animasi lama supaya tidak tabrakan.
             if (animationTokenRef.current !== myToken) return;
 
             const nodeId = String(exec.flow_node_id);
             const status = (exec.status || "success").toLowerCase();
 
-            // Edge yang menuju node ini (kalau ada node sebelumnya)
             const incomingEdge = prevNodeId
                 ? edgesSnapshot.find(
-                      (e) =>
-                          String(e.source) === prevNodeId &&
-                          String(e.target) === nodeId,
-                  )
+                    (e) =>
+                        String(e.source) === prevNodeId &&
+                        String(e.target) === nodeId,
+                )
                 : null;
 
-            // 1) Tandai node ini "running" + edge menuju kesini "traveling"
             setExecutionStatus((prev) => ({ ...prev, [nodeId]: "running" }));
-            // if (incomingEdge) {
-            //     setActiveEdgeIds(new Set([incomingEdge.id]));
-            // }
 
-            // 1) Set active edge
             if (incomingEdge) {
-                setActiveEdgeIds(new Set([incomingEdge.id])); // Ini membuang activeEdge sebelumnya, OK
+                setActiveEdgeIds(new Set([incomingEdge.id]));
             }
 
             pushLog({
@@ -302,8 +275,6 @@ export default function CanvasLayout() {
             await sleep(STEP_DELAY_MS);
             if (animationTokenRef.current !== myToken) return;
 
-            // 2) Node selesai -> tandai status final (success/failed), edge
-            //    yang baru dilewati pindah dari "traveling" ke "completed"
             setExecutionStatus((prev) => ({ ...prev, [nodeId]: status }));
             if (incomingEdge) {
                 setActiveEdgeIds(new Set());
@@ -315,11 +286,11 @@ export default function CanvasLayout() {
             const durationMs =
                 prevExecutedAt && exec.executed_at
                     ? Math.max(
-                          0,
-                          new Date(exec.executed_at).getTime() -
-                              new Date(prevExecutedAt).getTime(),
-                      )
-                    : null;
+                        0,
+                        new Date(exec.executed_at).getTime() -
+                            new Date(prevExecutedAt).getTime(),
+                    )
+                : null;
 
             pushLog({
                 id: exec.id ?? `${nodeId}-${exec.executed_at}`,
@@ -336,7 +307,6 @@ export default function CanvasLayout() {
                 data: exec.input_data ?? null,
             });
 
-            // n8n menghentikan propagasi visual kalau satu node gagal
             if (status === "failed") break;
 
             prevNodeId = nodeId;
@@ -348,19 +318,29 @@ export default function CanvasLayout() {
         }
     }, []);
 
-    const handleRunSimulation = async () => {
+    // 1. Tombol Header memanggil fungsi ini (Buka Modal)
+    const handleOpenSimModal = () => {
         if (editorApi.isDirty) {
             const proceed = window.confirm(
                 "Masih ada perubahan yang belum disimpan. Simpan flow dulu sebelum menjalankan simulasi?",
             );
-            if (proceed) {
-                await handleSaveFlow();
-            } else {
-                return;
-            }
+            if (proceed) handleSaveFlow();
+            else return;
+        }
+        setIsSimModalOpen(true);
+    };
+
+    // 2. Tombol "Jalankan Simulasi" di Modal memanggil fungsi ini
+    const handleExecuteSimulation = async () => {
+        let parsedInputData = {};
+        try {
+            parsedInputData = JSON.parse(simInputJson);
+        } catch (e) {
+            alert("Format Input Data harus JSON yang valid!");
+            return;
         }
 
-        // Batalkan animasi run sebelumnya (kalau ada) & reset canvas
+        setIsSimModalOpen(false);
         animationTokenRef.current += 1;
         setIsRunning(true);
         setIsBottomOpen(true);
@@ -372,29 +352,15 @@ export default function CanvasLayout() {
         const nodesSnapshot = editorApi.getNodes ? editorApi.getNodes() : [];
         const edgesSnapshot = editorApi.getEdges ? editorApi.getEdges() : [];
 
-        // DEBUG SEMENTARA: kalau nodesSnapshot kosong padahal canvas keliatan
-        // ada node, cek 2 baris ini di console -- kalau "getNodes tersedia?"
-        // FALSE, berarti FlowCanvas.jsx yang aktif belum versi yang expose
-        // getNodes lewat onEditorReady (file-nya belum ke-update). Hapus
-        // log ini setelah dipastikan beres.
-        console.log("[CanvasLayout] Run Simulation diklik ->", {
-            "getNodes tersedia?": typeof editorApi.getNodes === "function",
-            "getEdges tersedia?": typeof editorApi.getEdges === "function",
-            "jumlah node terbaca": nodesSnapshot.length,
-            "jumlah edge terbaca": edgesSnapshot.length,
-        });
-
         if (nodesSnapshot.length === 0) {
-            const getNodesMissing = typeof editorApi.getNodes !== "function";
             pushLog({
                 id: `empty-${Date.now()}`,
                 time: formatTime(),
                 node: "System",
                 type: "Info",
                 status: "FAILED",
-                message: getNodesMissing
-                    ? "editorApi.getNodes belum tersedia — kemungkinan FlowCanvas.jsx yang aktif belum versi terbaru (belum expose getNodes lewat onEditorReady). Cek console untuk detail."
-                    : "Flow ini belum punya node, tidak ada yang bisa disimulasikan.",
+                message:
+                    "Flow ini belum punya node, tidak ada yang bisa disimulasikan.",
                 duration: null,
                 data: null,
             });
@@ -402,42 +368,20 @@ export default function CanvasLayout() {
             return;
         }
 
-        // Tetap coba panggil backend dulu (buat catatan riwayat simulasi di
-        // DB), tapi TIDAK menggantungkan animasi ke sana kalau ternyata
-        // backend tidak benar-benar memprosesnya.
         let fullSimData = {};
         try {
-            const res = await flowService.runSimulation(flowId, {
-                employee_id: 12,
-            });
-            const simData = res?.data || res || {};
-
-            const simId = simData?.id ?? simData?.simulation_id ?? null;
-            const hasExecutionsFromCreate =
-                Array.isArray(simData?.node_executions) &&
-                simData.node_executions.length > 0;
-
-            fullSimData = simData;
-            if (!hasExecutionsFromCreate && simId) {
-                const detail = await flowService.getSimulationById(simId);
-                fullSimData = detail?.data || detail || simData;
-            }
+            const res = await flowService.runSimulation(
+                flowId,
+                parsedInputData,
+            );
+            fullSimData = res?.data || res || {};
         } catch (err) {
-            // Backend gagal / belum siap -> tetap lanjut, nanti fallback ke
-            // simulasi lokal di bawah.
             console.warn(
-                "⚠️ Backend simulasi gagal dipanggil, pakai simulasi lokal:",
+                "⚠️ Backend simulasi error, fallback ke simulasi lokal:",
                 err,
             );
-            fullSimData = {};
         }
 
-        // Backend dianggap "beneran mengeksekusi node" hanya kalau
-        // node_executions-nya ADA dan flow_node_id di dalamnya benar-benar
-        // cocok dengan node yang ada di canvas ini. Kalau backend cuma
-        // menyimpan data tanpa memproses graph-nya (node_executions kosong,
-        // atau isinya tidak nyambung ke node manapun), FE akan menelusuri
-        // graph-nya sendiri lewat buildLocalExecutions().
         const backendExecutions = Array.isArray(fullSimData?.node_executions)
             ? fullSimData.node_executions
             : [];
@@ -454,6 +398,7 @@ export default function CanvasLayout() {
                 node_executions: buildLocalExecutions(
                     nodesSnapshot,
                     edgesSnapshot,
+                    parsedInputData,
                 ),
             };
             pushLog({
@@ -464,7 +409,7 @@ export default function CanvasLayout() {
                 type: "Info",
                 status: "PENDING",
                 message:
-                    "Backend belum mengembalikan hasil eksekusi per-node yang valid — menjalankan simulasi visual berdasarkan urutan node di canvas (Start → ... → End).",
+                    "Backend belum mengembalikan hasil eksekusi per-node yang valid — menjalankan simulasi visual berdasarkan urutan node di canvas.",
                 duration: null,
                 data: null,
             });
@@ -534,9 +479,11 @@ export default function CanvasLayout() {
                             )}
                             Simpan Flow
                         </button>
+
+                        {/* FIX 2: Memanggil handleOpenSimModal, bukan handleRunSimulation */}
                         <button
                             type="button"
-                            onClick={handleRunSimulation}
+                            onClick={handleOpenSimModal}
                             disabled={isRunning}
                             className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-green-600 border-2 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-green-500 active:translate-y-1 active:shadow-none cursor-pointer disabled:opacity-50"
                         >
@@ -613,6 +560,55 @@ export default function CanvasLayout() {
                         </div>
                     )}
                 </div>
+
+                {/* Modal Input Data Simulasi */}
+                {isSimModalOpen && (
+                    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+                        <div className="bg-olive-50 border-4 border-olive-900 p-6 w-full max-w-lg shadow-[10px_10px_0px_rgba(0,0,0,1)] flex flex-col gap-4">
+                            <div className="border-b-2 border-olive-900 pb-2">
+                                <h3 className="text-lg font-black text-olive-900 uppercase">
+                                    Input Data Simulasi (Start Node)
+                                </h3>
+                                <p className="text-xs text-olive-700 font-bold mt-0.5">
+                                    Masukkan data variabel yang akan dialirkan
+                                    ke dalam flow.
+                                </p>
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs font-bold text-olive-900 uppercase">
+                                    Payload JSON (Input Variables)
+                                </label>
+                                <textarea
+                                    rows={6}
+                                    value={simInputJson}
+                                    onChange={(e) =>
+                                        setSimInputJson(e.target.value)
+                                    }
+                                    className="p-3 border-2 border-olive-900 bg-white font-mono text-xs outline-none"
+                                    placeholder='{ "total_belanja": 150000 }'
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-2 mt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsSimModalOpen(false)}
+                                    className="px-4 py-2 border-2 border-olive-900 bg-white text-xs font-bold hover:bg-olive-200 cursor-pointer"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleExecuteSimulation}
+                                    className="flex items-center gap-2 px-4 py-2 border-2 border-olive-900 bg-green-500 text-white text-xs font-bold shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-green-600 active:translate-y-0.5 active:shadow-none cursor-pointer"
+                                >
+                                    <Rocket size={16} /> Jalankan Simulasi
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </ReactFlowProvider>
     );

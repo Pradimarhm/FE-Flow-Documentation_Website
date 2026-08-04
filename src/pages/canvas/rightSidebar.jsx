@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useReactFlow } from "@xyflow/react";
 
-
 // Catatan skema penyimpanan:
 // Sebelumnya komponen ini nge-debounce lalu langsung PUT /nodes/{id} tiap
 // user ngetik. Itu bentrok dengan skema 2 (Simpan Flow manual) yang sekarang
@@ -47,12 +46,11 @@ export default function RightSidebar({ selectedNode, onNodeDataChange }) {
     const handleConfigChange = (field, value) => {
         let parsedValue = value;
 
-        // Jika field inputParams, coba parse dari string textarea ke JSON object
-        if (field === "inputParams") {
+        // Coba parse jika field bertipe JSON
+        if (field === "input_params" || field === "output_template") {
             try {
                 parsedValue = JSON.parse(value);
             } catch (e) {
-                // Jika user masih mengetik JSON belum selesai/valid, biarkan string
                 parsedValue = value;
             }
         }
@@ -133,13 +131,13 @@ export default function RightSidebar({ selectedNode, onNodeDataChange }) {
                     <textarea
                         rows={3}
                         value={
-                            typeof formData.config?.inputParams === "object"
+                            typeof formData.config?.input_params === "object"
                                 ? JSON.stringify(
-                                      formData.config.inputParams,
+                                      formData.config?.input_params,
                                       null,
                                       2,
                                   )
-                                : formData.config?.inputParams || ""
+                                : formData.config?.input_params || ""
                         }
                         onChange={(e) =>
                             handleConfigChange("inputParams", e.target.value)
@@ -154,7 +152,7 @@ export default function RightSidebar({ selectedNode, onNodeDataChange }) {
                     </label>
                     <input
                         type="text"
-                        value={formData.config?.validationRules || ""}
+                        value={formData.config?.validation_rules || ""}
                         onChange={(e) =>
                             handleConfigChange(
                                 "validationRules",
@@ -171,7 +169,7 @@ export default function RightSidebar({ selectedNode, onNodeDataChange }) {
                     </label>
                     <input
                         type="text"
-                        value={formData.config?.processLogic || ""}
+                        value={formData.config?.process_logic || ""}
                         onChange={(e) =>
                             handleConfigChange("processLogic", e.target.value)
                         }

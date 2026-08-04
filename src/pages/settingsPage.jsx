@@ -1,3 +1,4 @@
+// src/pages/SettingsPage.jsx
 import React, { useEffect, useState } from "react";
 import { Settings, User, KeyRound, Loader2, Eye, EyeOff, ShieldCheck, Mail } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
@@ -30,7 +31,6 @@ export default function SettingsPage() {
         errors: null,
     });
 
-    // Ambil detail profil user dari API jika store belum ada
     useEffect(() => {
         const fetchUserProfile = async () => {
             try {
@@ -71,11 +71,9 @@ export default function SettingsPage() {
 
         setIsSubmitting(true);
         try {
-            // PUT /auth/change-password
             const res = await authService.changePassword(formData);
             setSuccessMessage(res.message || "Password berhasil diubah!");
 
-            // Reset form setelah berhasil
             setFormData({
                 current_password: "",
                 new_password: "",
@@ -94,9 +92,9 @@ export default function SettingsPage() {
     };
 
     return (
-        <div className="w-full min-h-screen bg-olive-100 p-6 flex flex-col gap-6">
+        <div className="w-full min-h-screen bg-olive-50 p-6 flex flex-col gap-6">
             {/* Header */}
-            <div className="flex flex-row justify-between items-center bg-olive-50 p-4 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
+            <div className="flex flex-row justify-between items-center bg-olive-50 p-4 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
                 <div>
                     <h1 className="text-xl font-black text-olive-900 uppercase tracking-wide flex items-center gap-2">
                         <Settings size={24} /> Pengaturan Akun
@@ -109,7 +107,7 @@ export default function SettingsPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* RINGKASAN PROFIL USER */}
-                <div className="lg:col-span-1 bg-white border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] p-6 flex flex-col gap-4">
+                <div className="lg:col-span-1 bg-white rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] p-6 flex flex-col gap-4">
                     <h2 className="text-sm font-black uppercase text-olive-900 tracking-wider border-b-2 border-olive-900 pb-2 flex items-center gap-2">
                         <User size={18} /> Profil Saya
                     </h2>
@@ -120,8 +118,8 @@ export default function SettingsPage() {
                         </div>
                     ) : (
                         <div className="flex flex-col gap-4">
-                            <div className="flex items-center gap-4 bg-olive-50 p-3 border-2 border-black">
-                                <div className="w-12 h-12 bg-amber-300 border-2 border-black font-black text-xl flex items-center justify-center text-black shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                            <div className="flex items-center gap-4 rounded-sm bg-olive-50 p-3 border-2 border-black">
+                                <div className="w-12 h-12 rounded-xs bg-amber-300 border-2 border-black font-black text-xl flex items-center justify-center text-black shadow-[2px_2px_0px_rgba(0,0,0,1)]">
                                     {profile?.name ? profile.name.charAt(0).toUpperCase() : "U"}
                                 </div>
                                 <div className="overflow-hidden">
@@ -135,15 +133,15 @@ export default function SettingsPage() {
                             </div>
 
                             <div className="flex flex-col gap-2 text-xs font-bold uppercase">
-                                <div className="flex justify-between items-center p-2 bg-olive-100 border border-black">
+                                <div className="flex justify-between items-center p-2 rounded-sm bg-olive-100 border border-black">
                                     <span className="text-olive-700 flex items-center gap-1">
-                                        <ShieldCheck size={14} /> Role ID:
+                                        <ShieldCheck size={14} /> Hak Akses Role:
                                     </span>
-                                    <span className="bg-olive-300 px-2 py-0.5 border border-black font-black">
-                                        Role #{profile?.role_id || "-"}
+                                    <span className="bg-olive-300 px-4 py-1.5 rounded-xs border border-black font-bold uppercase">
+                                        {profile?.role || "GUEST"}
                                     </span>
                                 </div>
-                                <div className="flex justify-between items-center p-2 bg-olive-100 border border-black">
+                                <div className="flex justify-between items-center p-3 bg-olive-100 rounded-sm border border-black">
                                     <span className="text-olive-700">Status Akun:</span>
                                     <span className="text-green-700 font-black">AKTIF</span>
                                 </div>
@@ -153,7 +151,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* FORM UBAH PASSWORD */}
-                <div className="lg:col-span-2 bg-white border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] p-6 flex flex-col gap-4">
+                <div className="lg:col-span-2 bg-white rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] p-6 flex flex-col gap-4">
                     <h2 className="text-sm font-black uppercase text-olive-900 tracking-wider border-b-2 border-olive-900 pb-2 flex items-center gap-2">
                         <KeyRound size={18} /> Ubah Password
                     </h2>
@@ -165,7 +163,6 @@ export default function SettingsPage() {
                     )}
 
                     <form onSubmit={handleChangePassword} className="flex flex-col gap-4">
-                        {/* Current Password */}
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-bold uppercase text-olive-900">
                                 Password Saat Ini
@@ -178,7 +175,7 @@ export default function SettingsPage() {
                                     value={formData.current_password}
                                     onChange={handleInputChange}
                                     placeholder="Masukkan password saat ini"
-                                    className="w-full p-2 pr-10 border-2 border-black text-sm bg-white outline-none font-semibold"
+                                    className="w-full p-2 pr-10 border-2 rounded-sm border-black text-sm bg-white outline-none font-semibold"
                                 />
                                 <button
                                     type="button"
@@ -190,7 +187,6 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        {/* New Password */}
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-bold uppercase text-olive-900">
                                 Password Baru
@@ -203,7 +199,7 @@ export default function SettingsPage() {
                                     value={formData.new_password}
                                     onChange={handleInputChange}
                                     placeholder="Minimal 8 karakter"
-                                    className="w-full p-2 pr-10 border-2 border-black text-sm bg-white outline-none font-semibold"
+                                    className="w-full p-2 pr-10 rounded-sm border-2 border-black text-sm bg-white outline-none font-semibold"
                                 />
                                 <button
                                     type="button"
@@ -215,7 +211,6 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        {/* Confirm New Password */}
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-bold uppercase text-olive-900">
                                 Konfirmasi Password Baru
@@ -228,7 +223,7 @@ export default function SettingsPage() {
                                     value={formData.new_password_confirmation}
                                     onChange={handleInputChange}
                                     placeholder="Ulangi password baru"
-                                    className="w-full p-2 pr-10 border-2 border-black text-sm bg-white outline-none font-semibold"
+                                    className="w-full p-2 pr-10 rounded-sm border-2 border-black text-sm bg-white outline-none font-semibold"
                                 />
                                 <button
                                     type="button"
@@ -244,7 +239,7 @@ export default function SettingsPage() {
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="px-5 py-2.5 bg-green-500 text-white font-bold text-xs border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:bg-green-600 active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                                className="px-5 py-2.5 bg-green-500 text-white font-bold text-xs rounded-sm border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:bg-green-600 active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center gap-2 disabled:opacity-50"
                             >
                                 {isSubmitting && <Loader2 size={16} className="animate-spin" />}
                                 Simpan Perubahan Password

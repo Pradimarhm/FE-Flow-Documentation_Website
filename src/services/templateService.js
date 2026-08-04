@@ -1,6 +1,14 @@
 import apiClient from './apiClient';
 
 export const templateService = {
+
+    // searcing berdasarkan name
+    getTemplates: async (name = "") => {
+        const params = name ? { name } : {};
+        const response = await apiClient.get('/templates', { params });
+        return response;
+    },
+
     // GET /templates
     getTemplates: async () => {
         const response = await apiClient.get('/templates');

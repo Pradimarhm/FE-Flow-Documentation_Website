@@ -40,9 +40,9 @@ export default function Dashboard() {
     ];
 
     return (
-        <div className="w-full h-full flex flex-col bg-olive-100 overflow-y-auto p-6 gap-6">
+        <div className="w-full h-full flex flex-col bg-olive-50 overflow-y-auto p-6 gap-6">
             {/* Header Title */}
-            <div className="border-b-4 pb-4">
+            <div className="border-b-4 pb-4 rounded-sm">
                 <h1 className="text-3xl font-black text-olive-900 uppercase tracking-tight">
                     Dashboard Overview
                 </h1>
@@ -53,7 +53,7 @@ export default function Dashboard() {
 
             {/* Error Indicator */}
             {error && (
-                <div className="p-4 border-2 border-olive-900 bg-red-100 text-red-900 font-bold text-sm rounded-xs">
+                <div className="p-4 border-2 border-olive-900 bg-red-100 text-red-900 font-bold text-sm rounded-sm">
                     ⚠️ {error}
                 </div>
             )}
@@ -63,7 +63,7 @@ export default function Dashboard() {
                 {stats.map((stat, index) => (
                     <div
                         key={index}
-                        className={`p-4 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] rounded-xs ${stat.color} flex flex-col justify-between`}
+                        className={`p-4 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] rounded-sm ${stat.color} flex flex-col justify-between`}
                     >
                         <span className="text-xs font-bold text-olive-700 uppercase">
                             {stat.title}
@@ -78,10 +78,10 @@ export default function Dashboard() {
             </div>
 
             {/* Section: Recent Flow Activity (Tabel Neo-Brutalisme) */}
-            <div className="bg-olive-50 border-2 border-olive-900 shadow-[6px_6px_0px_rgba(54,69,79,1)] rounded-xs p-5 flex flex-col gap-4">
+            <div className="bg-olive-50 border-2 border-olive-900 shadow-[6px_6px_0px_rgba(54,69,79,1)] rounded-sm p-5 flex flex-col gap-4">
                 <div className="border-b-2 border-olive-900 pb-3">
                     <h2 className="text-sm font-black text-olive-900 uppercase tracking-wider">
-                        Recent Flow Activity
+                        Aktivitas Flow Terbaru
                     </h2>
                 </div>
 
