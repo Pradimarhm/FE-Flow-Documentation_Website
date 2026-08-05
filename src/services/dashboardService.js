@@ -84,7 +84,7 @@ export const dashboardService = {
             // Kalkulasi Akhir Metrik Global
             const overallSuccessRate = globalTotalSimulations > 0 
                 ? Math.round((globalSuccessSimulations / globalTotalSimulations) * 100) + '%' 
-                : '100%';
+                : '0%';
 
             const avgDurationSec = globalTotalSimulations > 0 
                 ? Math.round((globalTotalDurationMs / globalTotalSimulations) / 1000) + 's' 
