@@ -3,7 +3,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
 export default function RoleProtectedRoute({ moduleSlug }) {
-    const { isAuthenticated, permissions } = useAuthStore();
+    const { isAuthenticated, hasPermission } = useAuthStore();
 
     // 1. Lapis pertama: Cek Login (Sama seperti sebelumnya)
     if (!isAuthenticated) {
@@ -17,7 +17,7 @@ export default function RoleProtectedRoute({ moduleSlug }) {
 
     // 3. Lapis kedua: RBAC Macro-Protection
     // Cari apakah user memiliki akses 'read' ke modul slug yang diminta
-    const hasAccess = permissions?.some(
+    const hasAccess = hasPermission?.some(
         (p) => p.module === moduleSlug && p.actions.includes('read')
     );
 

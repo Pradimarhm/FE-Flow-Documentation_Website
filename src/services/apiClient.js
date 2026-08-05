@@ -22,7 +22,7 @@ apiClient.interceptors.request.use(
         // Fallback jika store Zustand belum selesai rehydrate
         if (!token) {
             try {
-                const persisted = localStorage.getItem('auth-storage'); // sesuaikan key Zustand persist lu
+                const persisted = localStorage.getItem('flowTech-storage'); 
                 if (persisted) {
                     const parsed = JSON.parse(persisted);
                     token = parsed?.state?.token;
