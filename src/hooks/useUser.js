@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
-import { useUserStore } from '../store/useUserStore';
+import { useEffect, useState } from "react";
+import { useUserStore } from "../store/useUserStore";
 
 const INITIAL_FORM = {
     role_id: 2,
-    name: '',
-    email: '',
-    password: '',
+    name: "",
+    email: "",
+    password: "",
 };
 
 export const useUser = () => {
@@ -24,7 +24,7 @@ export const useUser = () => {
     const [formData, setFormData] = useState(INITIAL_FORM);
     const [editingId, setEditingId] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [searchName, setSearchName] = useState('');
+    const [searchName, setSearchName] = useState("");
 
     // Debounce 300ms saat user mengetik nama
     useEffect(() => {
@@ -35,15 +35,11 @@ export const useUser = () => {
         return () => clearTimeout(timer);
     }, [searchName, fetchUsers]);
 
-    // useEffect(() => {
-    //     fetchUsers();
-    // }, [fetchUsers]);
-
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({
             ...prev,
-            [name]: name === 'role_id' ? Number(value) : value,
+            [name]: name === "role_id" ? Number(value) : value,
         }));
     };
 
@@ -60,7 +56,7 @@ export const useUser = () => {
             role_id: user.role_id,
             name: user.name,
             email: user.email,
-            password: '', 
+            password: "",
         });
         setEditingId(user.id);
         setIsModalOpen(true);
@@ -73,7 +69,7 @@ export const useUser = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         // Hapus password jika sedang mode edit dan password tidak diisi
         const payload = { ...formData };
         if (editingId && !payload.password) {
@@ -89,13 +85,23 @@ export const useUser = () => {
 
         if (res.success) {
             handleCloseModal();
+        } else {
+            // Lempar error agar ditangkap oleh ErrorPopup di halaman
+            throw (
+                res.error || new Error(res.message || "Gagal menyimpan data.")
+            );
         }
     };
 
+    // ✅ FIX: Hapus window.confirm bawaan browser!
     const handleDelete = async (id) => {
-        if (window.confirm('Apakah Anda yakin ingin menghapus user ini?')) {
-            await removeUser(id);
+        const res = await removeUser(id);
+
+        // Jika dari store mengembalikan status/object success/error:
+        if (res && res.success === false) {
+            throw new Error(res.message || "Gagal menghapus user.");
         }
+        return res;
     };
 
     return {
@@ -106,7 +112,7 @@ export const useUser = () => {
         formData,
         editingId,
         isModalOpen,
-        searchName,         // Expose state pencarian ke UI
+        searchName, // Expose state pencarian ke UI
         setSearchName, // Expose setter untuk input onChange UI
         handleInputChange,
         handleOpenCreateModal,
@@ -115,4 +121,4 @@ export const useUser = () => {
         handleSubmit,
         handleDelete,
     };
-};  
+};

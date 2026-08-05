@@ -1,101 +1,154 @@
-import React from 'react';
-import { AlertTriangle, CheckCircle2, Info, AlertCircle, X } from 'lucide-react';
+// src/components/error/errorPopUp.jsx
+import React, { useState } from "react";
+import {
+    AlertTriangle,
+    CheckCircle,
+    HelpCircle,
+    AlertCircle,
+    Loader2,
+} from "lucide-react";
 
-export default function ErrorPopup({ 
-    isOpen, 
-    onClose, 
-    type = "error", // 'error' | 'success' | 'warning' | 'info'
-    title, 
-    message, 
-    errors 
+export default function ErrorPopup({
+    isOpen,
+    onClose,
+    title,
+    message,
+    type = "error", // 'error' | 'success' | 'warning' | 'confirm'
+    errors = null,
+    onConfirm = null,
+    confirmLabel = "Ya, Lanjutkan",
+    cancelLabel = "Batal",
 }) {
+    const [isConfirmLoading, setIsConfirmLoading] = useState(false);
+
     if (!isOpen) return null;
 
-    // 🎨 Configuration berdasarkan Tipe Notifikasi
-    const config = {
-        error: {
-            headerBg: 'bg-red-500',
-            badgeBg: 'bg-red-100',
-            badgeText: 'text-red-900',
-            defaultTitle: 'Gagal / Validasi Error',
-            icon: AlertTriangle,
-        },
-        success: {
-            headerBg: 'bg-emerald-500', // Hijau Neo-Brutalist
-            badgeBg: 'bg-emerald-200',
-            badgeText: 'text-emerald-950',
-            defaultTitle: 'Berhasil!',
-            icon: CheckCircle2,
-        },
-        warning: {
-            headerBg: 'bg-amber-400',
-            badgeBg: 'bg-amber-100',
-            badgeText: 'text-amber-950',
-            defaultTitle: 'Peringatan',
-            icon: AlertCircle,
-        },
-        info: {
-            headerBg: 'bg-sky-400',
-            badgeBg: 'bg-sky-100',
-            badgeText: 'text-sky-950',
-            defaultTitle: 'Informasi',
-            icon: Info,
+    const handleConfirmAction = async () => {
+        if (!onConfirm) {
+            onClose();
+            return;
+        }
+
+        try {
+            setIsConfirmLoading(true);
+            await onConfirm(); // Menunggu proses API delete/action selesai
+        } catch (err) {
+            console.error("Error pada konfirmasi aksi:", err);
+        } finally {
+            setIsConfirmLoading(false);
         }
     };
 
-    const currentTheme = config[type] || config.error;
-    const IconComponent = currentTheme.icon;
-    const displayTitle = title || currentTheme.defaultTitle;
+    const config =
+        {
+            error: {
+                bg: "bg-rose-100",
+                border: "border-rose-900",
+                btn: "bg-rose-600 text-white hover:bg-rose-700",
+                icon: <AlertTriangle className="w-6 h-6 text-rose-600" />,
+            },
+            success: {
+                bg: "bg-green-100",
+                border: "border-green-900",
+                btn: "bg-green-600 text-white hover:bg-green-700",
+                icon: <CheckCircle className="w-6 h-6 text-green-600" />,
+            },
+            warning: {
+                bg: "bg-amber-100",
+                border: "border-amber-900",
+                btn: "bg-amber-500 text-black hover:bg-amber-600",
+                icon: <AlertCircle className="w-6 h-6 text-amber-600" />,
+            },
+            confirm: {
+                bg: "bg-amber-100",
+                border: "border-amber-900",
+                btn: "bg-rose-600 text-white hover:bg-rose-700",
+                icon: <HelpCircle className="w-6 h-6 text-amber-600" />,
+            },
+        }[type] || config.error;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
-            <div className="bg-white border-4 border-black rounded-md shadow-[8px_8px_0px_rgba(0,0,0,1)] w-full max-w-md overflow-hidden flex flex-col">
-                
-                {/* Header Popup - Warna Dinamis Berdasarkan Type */}
-                <div className={`${currentTheme.headerBg} border-b-4 border-black p-4 flex items-center justify-between text-black`}>
-                    <div className="flex items-center gap-2">
-                        <IconComponent size={24} className="stroke-[2.5]" />
-                        <h3 className="font-black text-lg uppercase tracking-wider">{displayTitle}</h3>
-                    </div>
-                    <button 
-                        onClick={onClose}
-                        className="bg-white text-black p-1 rounded-xs border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none active:translate-x-1 active:translate-y-1 transition-all cursor-pointer"
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="bg-white rounded-md border-4 border-black p-6 w-full max-w-sm shadow-[8px_8px_0px_rgba(0,0,0,1)] flex flex-col gap-4 relative">
+                {/* Header */}
+                <div className="flex items-center gap-3 border-b-2 border-black pb-3">
+                    <div
+                        className={`p-2 rounded-sm border-2 border-black ${config.bg}`}
                     >
-                        <X size={18} className="stroke-3" />
-                    </button>
+                        {config.icon}
+                    </div>
+                    <h3 className="text-lg font-black uppercase text-black">
+                        {title || "Pemberitahuan"}
+                    </h3>
                 </div>
 
-                {/* Body Content */}
-                <div className="p-6 flex flex-col gap-4 bg-amber-50/50">
-                    {message && (
-                        <p className={`font-bold text-sm ${currentTheme.badgeText} ${currentTheme.badgeBg} rounded-sm border-2 border-black p-3 shadow-[3px_3px_0px_rgba(0,0,0,1)]`}>
-                            {message}
-                        </p>
-                    )}
+                {/* Message & List Errors */}
+                <div className="flex flex-col gap-2">
+                    <p className="text-xs font-bold text-slate-800 leading-relaxed">
+                        {message}
+                    </p>
 
-                    {/* Menampilkan Detail Error Validasi (Laravel) Jika Ada */}
-                    {errors && Object.keys(errors).length > 0 && (
-                        <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
-                            <span className="text-xs font-black uppercase text-gray-700">Detail Pesan:</span>
-                            {Object.entries(errors).map(([field, messages], idx) => (
-                                <div key={idx} className="bg-red-100 border-2 border-black p-2 text-xs font-semibold text-red-900 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
-                                    <span className="font-black capitalize">{field}:</span> {Array.isArray(messages) ? messages.join(', ') : messages}
-                                </div>
-                            ))}
+                    {errors && typeof errors === "object" && (
+                        <div className="bg-rose-50 border-2 border-rose-400 p-2.5 rounded-sm max-h-32 overflow-y-auto">
+                            <ul className="list-disc list-inside text-[11px] font-semibold text-rose-700 space-y-1">
+                                {Object.entries(errors).map(
+                                    ([field, errList]) => (
+                                        <li key={field}>
+                                            <span className="capitalize font-bold">
+                                                {field}:
+                                            </span>{" "}
+                                            {Array.isArray(errList)
+                                                ? errList.join(", ")
+                                                : String(errList)}
+                                        </li>
+                                    ),
+                                )}
+                            </ul>
                         </div>
                     )}
                 </div>
 
-                {/* Footer Action Button */}
-                <div className="p-4 bg-white border-t-4 border-black flex justify-end">
-                    <button 
-                        onClick={onClose}
-                        className="bg-black text-white px-5 py-2 font-black text-xs uppercase border-2 border-black shadow-[4px_4px_0px_rgba(200,200,200,1)] hover:bg-neutral-800 hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all cursor-pointer"
-                    >
-                        Tutup
-                    </button>
+                {/* Footer Actions */}
+                <div className="flex justify-end gap-2 mt-2">
+                    {type === "confirm" ? (
+                        <>
+                            <button
+                                type="button"
+                                disabled={isConfirmLoading}
+                                onClick={onClose}
+                                className="px-4 py-2 rounded-sm border-2 border-black bg-white text-xs font-bold hover:bg-gray-100 disabled:opacity-50 cursor-pointer"
+                            >
+                                {cancelLabel}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={isConfirmLoading}
+                                onClick={handleConfirmAction}
+                                className={`px-4 py-2 rounded-sm border-2 border-black text-xs font-bold shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none flex items-center gap-2 cursor-pointer disabled:opacity-50 ${config.btn}`}
+                            >
+                                {isConfirmLoading ? (
+                                    <>
+                                        <Loader2
+                                            size={14}
+                                            className="animate-spin"
+                                        />
+                                        Menghapus...
+                                    </>
+                                ) : (
+                                    confirmLabel
+                                )}  
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className={`px-4 py-2 rounded-sm border-2 border-black text-xs font-bold shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none cursor-pointer ${config.btn}`}
+                        >
+                            Tutup
+                        </button>
+                    )}
                 </div>
-
             </div>
         </div>
     );

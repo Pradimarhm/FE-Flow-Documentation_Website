@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { templateService } from "@/services/templateService";
-import { aiService } from "@/services/aiService"; // Import aiService
-import { Plus, Trash2, Loader2, ChevronDown, Sparkles } from "lucide-react"; // Import Sparkles
+import { aiService } from "@/services/aiService";
+import { Plus, Trash2, Loader2, ChevronDown, Sparkles } from "lucide-react";
 import { NODE_TYPE_CONFIG } from "@/config/nodeTypes";
+import ErrorPopup from "../components/error/errorPopUp";
 
 export default function TemplatesPage() {
     const [templates, setTemplates] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(null);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [isGenerating, setIsGenerating] = useState(false); // State loading untuk AI
+    const [isGenerating, setIsGenerating] = useState(false);
 
-    // State disesuaikan dengan payload backend
     const [formData, setFormData] = useState({
         name: "",
         node_type: "process",
@@ -21,13 +23,24 @@ export default function TemplatesPage() {
         default_output_template: "{}",
     });
 
+    const [actionPopup, setActionPopup] = useState({
+        isOpen: false,
+        title: "",
+        type: "error",
+        message: "",
+        errors: null,
+        onConfirm: null,
+    });
+
     const fetchTemplates = async () => {
         try {
             setIsLoading(true);
+            setFetchError(null);
             const res = await templateService.getTemplates();
             setTemplates(res?.data || res || []);
         } catch (err) {
             console.error("Gagal ambil template:", err);
+            setFetchError(err?.message || "Gagal mengambil data template.");
         } finally {
             setIsLoading(false);
         }
@@ -37,10 +50,15 @@ export default function TemplatesPage() {
         fetchTemplates();
     }, []);
 
-    // Handler AI untuk Auto-Fill Config Template
     const handleAIGenerate = async () => {
         if (!formData.name.trim()) {
-            alert("Isi Nama Template terlebih dahulu!");
+            setActionPopup({
+                isOpen: true,
+                title: "Input Diperlukan",
+                type: "warning",
+                message: "Silakan isi Nama Template terlebih dahulu!",
+                onConfirm: null,
+            });
             return;
         }
 
@@ -67,8 +85,13 @@ export default function TemplatesPage() {
                 ),
             }));
         } catch (error) {
-            console.error("Gagal generate config via AI:", error);
-            alert(`Gagal generate AI: ${error.message}`);
+            setActionPopup({
+                isOpen: true,
+                title: "Gagal Generate Config AI",
+                type: "error",
+                message: error.message || "Terjadi kesalahan pada layanan AI.",
+                onConfirm: null,
+            });
         } finally {
             setIsGenerating(false);
         }
@@ -80,14 +103,20 @@ export default function TemplatesPage() {
             let parsedInput = {};
             let parsedOutput = {};
 
-            // Parse Safe dengan Fallback Objek Kosong
             try {
                 parsedInput =
                     typeof formData.default_input_params === "string"
                         ? JSON.parse(formData.default_input_params)
                         : formData.default_input_params;
             } catch (e) {
-                alert("Format JSON pada Default Input Params tidak valid!");
+                setActionPopup({
+                    isOpen: true,
+                    title: "Format JSON Tidak Valid",
+                    type: "error",
+                    message:
+                        "Format JSON pada Default Input Params tidak valid!",
+                    onConfirm: null,
+                });
                 return;
             }
 
@@ -97,7 +126,14 @@ export default function TemplatesPage() {
                         ? JSON.parse(formData.default_output_template)
                         : formData.default_output_template;
             } catch (e) {
-                alert("Format JSON pada Default Output Template tidak valid!");
+                setActionPopup({
+                    isOpen: true,
+                    title: "Format JSON Tidak Valid",
+                    type: "error",
+                    message:
+                        "Format JSON pada Default Output Template tidak valid!",
+                    onConfirm: null,
+                });
                 return;
             }
 
@@ -112,21 +148,57 @@ export default function TemplatesPage() {
 
             await templateService.createTemplate(payload);
             setIsModalOpen(false);
-            // Reset form...
             fetchTemplates();
+
+            setActionPopup({
+                isOpen: true,
+                title: "Berhasil Menambah Template",
+                type: "success",
+                message: "Master template node baru telah dibuat.",
+                onConfirm: null,
+            });
         } catch (err) {
-            console.error("Gagal buat template:", err);
+            setActionPopup({
+                isOpen: true,
+                title: "Gagal Membuat Template",
+                type: "error",
+                message:
+                    err?.message || "Terjadi kesalahan saat menyimpan data.",
+                onConfirm: null,
+            });
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!confirm("Yakin mau hapus template ini?")) return;
-        try {
-            await templateService.deleteTemplate(id);
-            fetchTemplates();
-        } catch (err) {
-            console.error("Gagal hapus template:", err);
-        }
+    const promptDeleteTemplate = (id, name) => {
+        setActionPopup({
+            isOpen: true,
+            title: "Hapus Template?",
+            type: "confirm",
+            message: `Apakah kamu yakin ingin menghapus template "${name}"?`,
+            onConfirm: async () => {
+                try {
+                    await templateService.deleteTemplate(id);
+                    fetchTemplates();
+                    setActionPopup({
+                        isOpen: true,
+                        title: "Berhasil Menghapus",
+                        type: "success",
+                        message: `Template "${name}" telah berhasil dihapus.`,
+                        onConfirm: null,
+                    });
+                } catch (err) {
+                    setActionPopup({
+                        isOpen: true,
+                        title: "Gagal Menghapus",
+                        type: "error",
+                        message:
+                            err?.message ||
+                            "Tidak dapat menghapus template ini.",
+                        onConfirm: null,
+                    });
+                }
+            },
+        });
     };
 
     return (
@@ -152,6 +224,10 @@ export default function TemplatesPage() {
                 <div className="flex items-center gap-2 text-olive-800">
                     <Loader2 className="animate-spin" size={20} /> Memuat data
                     template...
+                </div>
+            ) : fetchError ? (
+                <div className="p-4 bg-red-100 border-2 border-black font-bold text-red-900 rounded-sm">
+                    ⚠️ {fetchError}
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -205,7 +281,12 @@ export default function TemplatesPage() {
 
                                 <div className="flex justify-end gap-2 border-t-2 border-olive-200 pt-2">
                                     <button
-                                        onClick={() => handleDelete(item.id)}
+                                        onClick={() =>
+                                            promptDeleteTemplate(
+                                                item.id,
+                                                item.name,
+                                            )
+                                        }
                                         className="p-1 text-red-600 hover:bg-red-50 border border-transparent hover:border-red-300 rounded cursor-pointer"
                                     >
                                         <Trash2 size={16} />
@@ -219,7 +300,7 @@ export default function TemplatesPage() {
 
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white border-2 border-black shadow-[6px_6px_0px_rgba(0,0,0,1)] p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-md border-4 border-black shadow-[6px_6px_0px_rgba(0,0,0,1)] p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-4 border-b-2 border-olive-200 pb-2">
                             <h2 className="text-lg font-black text-olive-900">
                                 Tambah Template Node
@@ -230,7 +311,6 @@ export default function TemplatesPage() {
                             onSubmit={handleSubmit}
                             className="flex flex-col gap-3 text-xs"
                         >
-                            {/* NAMA TEMPLATE + TOMBOL AI */}
                             <div>
                                 <label className="font-bold text-olive-900 block mb-1">
                                     Nama Template *
@@ -246,17 +326,16 @@ export default function TemplatesPage() {
                                             name: e.target.value,
                                         })
                                     }
-                                    className="w-full p-2 border-2 border-olive-900 font-semibold"
+                                    className="w-full p-2 rounded-sm border-2 border-olive-900 font-semibold"
                                 />
 
-                                {/* BUTTON GENERATE CONFIG VIA AI */}
                                 <button
                                     type="button"
                                     onClick={handleAIGenerate}
                                     disabled={
                                         isGenerating || !formData.name.trim()
                                     }
-                                    className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-black text-black bg-amber-300 border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-amber-400 active:translate-y-0.5 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
+                                    className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-black text-black bg-amber-300 rounded-sm border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-amber-400 active:translate-y-0.5 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
                                 >
                                     {isGenerating ? (
                                         <>
@@ -275,7 +354,6 @@ export default function TemplatesPage() {
                                 </button>
                             </div>
 
-                            {/* NODE TYPE DROPDOWN */}
                             <div className="relative">
                                 <label className="font-bold text-olive-900 block mb-1">
                                     Node Type
@@ -284,7 +362,7 @@ export default function TemplatesPage() {
                                     onClick={() =>
                                         setIsDropdownOpen(!isDropdownOpen)
                                     }
-                                    className="w-full p-2 border-2 border-olive-900 font-semibold bg-white cursor-pointer flex justify-between items-center select-none"
+                                    className="w-full p-2 rounded-sm border-2 border-olive-900 font-semibold bg-white cursor-pointer flex justify-between items-center select-none"
                                 >
                                     <span className="capitalize">
                                         {formData.node_type}
@@ -298,7 +376,7 @@ export default function TemplatesPage() {
                                 </div>
 
                                 {isDropdownOpen && (
-                                    <div className="absolute top-full left-0 w-full mt-1 bg-white border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] z-50 flex flex-col">
+                                    <div className="absolute top-full left-0 w-full mt-1 bg-white rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] z-50 flex flex-col">
                                         {[
                                             "start",
                                             "process",
@@ -325,7 +403,6 @@ export default function TemplatesPage() {
                                 )}
                             </div>
 
-                            {/* INPUT PARAMS */}
                             <div>
                                 <label className="font-bold text-olive-900 block mb-1">
                                     Input Params (JSON)
@@ -340,11 +417,10 @@ export default function TemplatesPage() {
                                                 e.target.value,
                                         })
                                     }
-                                    className="w-full p-2 border-2 border-olive-900 font-mono text-[11px]"
+                                    className="w-full p-2 rounded-sm border-2 border-olive-900 font-mono text-[11px]"
                                 />
                             </div>
 
-                            {/* VALIDATION LOGIC */}
                             <div>
                                 <label className="font-bold text-olive-900 block mb-1">
                                     Validation Logic
@@ -358,12 +434,11 @@ export default function TemplatesPage() {
                                             default_validation: e.target.value,
                                         })
                                     }
-                                    className="w-full p-2 border-2 border-olive-900 font-mono text-[11px]"
+                                    className="w-full p-2 rounded-sm border-2 border-olive-900 font-mono text-[11px]"
                                     placeholder="Contoh: stock > 10"
                                 />
                             </div>
 
-                            {/* PROCESS LOGIC */}
                             <div>
                                 <label className="font-bold text-olive-900 block mb-1">
                                     Process Logic
@@ -378,11 +453,10 @@ export default function TemplatesPage() {
                                                 e.target.value,
                                         })
                                     }
-                                    className="w-full p-2 border-2 border-olive-900 font-mono text-[11px]"
+                                    className="w-full p-2 rounded-sm border-2 border-olive-900 font-mono text-[11px]"
                                 />
                             </div>
 
-                            {/* OUTPUT TEMPLATE */}
                             <div>
                                 <label className="font-bold text-olive-900 block mb-1">
                                     Output Template (JSON)
@@ -397,7 +471,7 @@ export default function TemplatesPage() {
                                                 e.target.value,
                                         })
                                     }
-                                    className="w-full p-2 border-2 border-olive-900 font-mono text-[11px]"
+                                    className="w-full p-2 rounded-sm border-2 border-olive-900 font-mono text-[11px]"
                                 />
                             </div>
 
@@ -405,13 +479,13 @@ export default function TemplatesPage() {
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
-                                    className="px-4 py-2 border-2 border-black font-bold text-olive-900 hover:bg-olive-200 cursor-pointer"
+                                    className="px-4 py-2 rounded-sm border-2 border-black font-bold text-olive-900 hover:bg-olive-200 cursor-pointer"
                                 >
                                     Batal
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex items-center gap-2 px-4 py-2 rounded-xs bg-green-500 text-green-50 text-xs font-bold border-2 border-olive-900 shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-green-700 -translate-y-0.5 active:translate-y-0 active:shadow-none transition-all cursor-pointer"
+                                    className="flex items-center gap-2 px-4 py-2 rounded-sm bg-green-500 text-green-50 text-xs font-bold border-2 border-olive-900 shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-green-700 -translate-y-0.5 active:translate-y-0 active:shadow-none transition-all cursor-pointer"
                                 >
                                     Simpan
                                 </button>
@@ -420,6 +494,18 @@ export default function TemplatesPage() {
                     </div>
                 </div>
             )}
+
+            <ErrorPopup
+                isOpen={actionPopup.isOpen}
+                onClose={() =>
+                    setActionPopup({ ...actionPopup, isOpen: false })
+                }
+                title={actionPopup.title}
+                type={actionPopup.type}
+                message={actionPopup.message}
+                errors={actionPopup.errors}
+                onConfirm={actionPopup.onConfirm}
+            />
         </div>
     );
 }

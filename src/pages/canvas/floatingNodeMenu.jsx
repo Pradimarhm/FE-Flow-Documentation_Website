@@ -178,7 +178,7 @@ export default function FloatingNodeMenu({ onAddNode }) {
                 type="button"
                 onClick={() => setIsOpen(true)}
                 title="Tambah Node"
-                className="absolute top-4 left-4 z-10 w-11 h-11 flex items-center justify-center bg-olive-900 text-white border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] hover:bg-olive-700 active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
+                className="absolute top-4 left-4 z-10 w-11 h-11 flex items-center justify-center rounded-sm bg-olive-900 text-white border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] hover:bg-olive-700 active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
             >
                 <Plus size={20} />
             </button>
@@ -186,8 +186,8 @@ export default function FloatingNodeMenu({ onAddNode }) {
     }
 
     return (
-        <div className="absolute top-4 left-4 z-10 bg-olive-50 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] flex flex-col w-56 max-h-[80vh]">
-            <div className="flex items-center justify-between px-3 py-2 border-b-2 border-olive-900 bg-olive-200">
+        <div className="absolute top-4 left-4 z-10 bg-olive-50 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] flex flex-col w-56 max-h-[80vh]">
+            <div className="flex items-center justify-between px-3 py-2 rounded-t-sm border-b-2 border-olive-900 bg-olive-200">
                 <span className="text-[11px] font-black text-olive-900 uppercase tracking-wider">
                     Tambah Node
                 </span>

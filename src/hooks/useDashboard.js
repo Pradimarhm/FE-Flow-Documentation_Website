@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { dashboardService } from '../services/dashboardService';
 
 export const useDashboard = () => {
@@ -11,6 +11,8 @@ export const useDashboard = () => {
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    const fetchedRef = useRef(false);
 
     const fetchDashboardData = useCallback(async () => {
         setLoading(true);
@@ -32,6 +34,9 @@ export const useDashboard = () => {
     }, []);
 
     useEffect(() => {
+        if (fetchedRef.current) return;
+        fetchedRef.current = true;
+
         fetchDashboardData();
     }, [fetchDashboardData]);
 

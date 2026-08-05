@@ -14,6 +14,7 @@ import {
     ShieldCheck,
     RefreshCw,
 } from "lucide-react";
+import ErrorPopup from "../components/error/errorPopUp";
 
 export default function PermissionsPage() {
     const {
@@ -37,6 +38,15 @@ export default function PermissionsPage() {
         permission: DEFAULT_PERMISSION_OBJECT,
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const [actionPopup, setActionPopup] = useState({
+        isOpen: false,
+        title: "",
+        type: "error",
+        message: "",
+        errors: null,
+        onConfirm: null,
+    });
 
     useEffect(() => {
         fetchPermissions();
@@ -112,41 +122,67 @@ export default function PermissionsPage() {
                 );
 
                 if (existing) {
-                    if (
-                        window.confirm(
-                            `Permission untuk Role & Module ini sudah ada. Ingin memperbaruinya?`,
-                        )
-                    ) {
-                        await updatePermission(existing.id, payload);
-                    } else {
-                        setIsSubmitting(false);
-                        return;
-                    }
+                    await updatePermission(existing.id, payload);
                 } else {
                     await addPermission(payload);
                 }
             }
             closeModal();
+            setActionPopup({
+                isOpen: true,
+                title: editingPermission
+                    ? "Berhasil Diperbarui"
+                    : "Berhasil Ditambahkan",
+                type: "success",
+                message: "Hak akses permission berhasil disimpan.",
+                onConfirm: null,
+            });
         } catch (err) {
-            alert(
-                err?.response?.data?.message ||
+            setActionPopup({
+                isOpen: true,
+                title: "Gagal Menyimpan",
+                type: "error",
+                message:
+                    err?.response?.data?.message ||
                     err?.message ||
                     "Terjadi kesalahan saat menyimpan.",
-            );
+                onConfirm: null,
+            });
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm("Yakin ingin menghapus permission ini?")) return;
-        try {
-            await deletePermission(id);
-        } catch (err) {
-            alert(
-                err?.response?.data?.message || "Gagal menghapus permission.",
-            );
-        }
+    const promptDeletePermission = (id) => {
+        setActionPopup({
+            isOpen: true,
+            title: "Hapus Permission?",
+            type: "confirm",
+            message:
+                "Apakah kamu yakin ingin menghapus hak akses permission ini?",
+            onConfirm: async () => {
+                try {
+                    await deletePermission(id);
+                    setActionPopup({
+                        isOpen: true,
+                        title: "Berhasil Menghapus",
+                        type: "success",
+                        message: "Permission telah berhasil dihapus.",
+                        onConfirm: null,
+                    });
+                } catch (err) {
+                    setActionPopup({
+                        isOpen: true,
+                        title: "Gagal Menghapus",
+                        type: "error",
+                        message:
+                            err?.response?.data?.message ||
+                            "Gagal menghapus permission.",
+                        onConfirm: null,
+                    });
+                }
+            },
+        });
     };
 
     const getRoleName = (roleId) => {
@@ -182,9 +218,7 @@ export default function PermissionsPage() {
     };
 
     return (
-        /* Menggunakan h-screen & overflow-hidden agar halaman pas 1 layar */
         <div className="w-full h-full bg-olive-50 p-6 flex flex-col gap-6 overflow-hidden">
-            {/* Header (Ukuran Tetap) */}
             <div className="flex-none flex flex-row justify-between items-center bg-olive-50 p-4 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
                 <div>
                     <h1 className="text-xl font-black text-olive-900 uppercase tracking-wide flex items-center gap-2">
@@ -211,7 +245,6 @@ export default function PermissionsPage() {
                 </div>
             </div>
 
-            {/* Area Tabel fleksibel mengisi sisa tinggi layar & bisa discroll internal */}
             <div className="flex bg-white p-5 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] overflow-y-auto">
                 {isLoading ? (
                     <div className="flex w-full justify-center items-center gap-2 text-olive-800 font-bold">
@@ -225,7 +258,6 @@ export default function PermissionsPage() {
                 ) : (
                     <div className="relative flex-1 overflow-y-auto">
                         <table className="w-full text-left text-sm border-collapse">
-                            {/* Header Sticky Tepat di Top Wrapper Scroll */}
                             <thead className="sticky top-0 z-20 bg-olive-200 border-b-2 border-olive-900 text-xs uppercase font-black">
                                 <tr>
                                     <th className="p-3 w-16 bg-olive-200">
@@ -290,7 +322,7 @@ export default function PermissionsPage() {
                                                     </button>
                                                     <button
                                                         onClick={() =>
-                                                            handleDelete(
+                                                            promptDeletePermission(
                                                                 item.id,
                                                             )
                                                         }
@@ -310,10 +342,9 @@ export default function PermissionsPage() {
                 )}
             </div>
 
-            {/* Modal Create / Edit */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-olive-50 border-4 border-olive-900 shadow-[8px_8px_0px_rgba(0,0,0,1)] w-full max-w-md p-6 flex flex-col gap-4">
+                    <div className="bg-olive-50 rounded-md border-4 border-olive-900 shadow-[8px_8px_0px_rgba(0,0,0,1)] w-full max-w-md p-6 flex flex-col gap-4">
                         <h2 className="text-lg font-black uppercase tracking-wider border-b-2 border-olive-900 pb-2">
                             {editingPermission
                                 ? "Edit Permission"
@@ -337,7 +368,7 @@ export default function PermissionsPage() {
                                             role_id: e.target.value,
                                         })
                                     }
-                                    className="p-2 border-2 border-black text-sm bg-white outline-none font-semibold cursor-pointer"
+                                    className="p-2 rounded-sm border-2 border-black text-sm bg-white outline-none font-semibold cursor-pointer"
                                 >
                                     <option value="">-- Pilih Role --</option>
                                     {MASTER_ROLES.map((r) => (
@@ -361,7 +392,7 @@ export default function PermissionsPage() {
                                             module_id: e.target.value,
                                         })
                                     }
-                                    className="p-2 border-2 border-black text-sm bg-white outline-none font-semibold cursor-pointer"
+                                    className="p-2 rounded-sm border-2 border-black text-sm bg-white outline-none font-semibold cursor-pointer"
                                 >
                                     <option value="">-- Pilih Module --</option>
                                     {MASTER_MODULES.map((m) => (
@@ -376,7 +407,7 @@ export default function PermissionsPage() {
                                 <label className="text-xs font-bold uppercase mb-1">
                                     Actions Allowed
                                 </label>
-                                <div className="grid grid-cols-2 gap-2 bg-white p-3 border-2 border-black">
+                                <div className="grid grid-cols-2 gap-2 bg-white p-3 rounded-sm border-2 border-black">
                                     {AVAILABLE_ACTIONS.map((action) => (
                                         <label
                                             key={action.key}
@@ -406,14 +437,14 @@ export default function PermissionsPage() {
                                 <button
                                     type="button"
                                     onClick={closeModal}
-                                    className="px-4 py-2 border-2 border-black bg-white font-bold text-xs hover:bg-gray-100 cursor-pointer"
+                                    className="px-4 py-2 rounded-sm border-2 border-black bg-white font-bold text-xs hover:bg-gray-100 cursor-pointer"
                                 >
                                     Batal
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className="px-4 py-2 border-2 border-black bg-green-500 text-white font-bold text-xs hover:bg-green-600 disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                                    className="px-4 py-2 rounded-sm border-2 border-black bg-green-500 text-white font-bold text-xs hover:bg-green-600 disabled:opacity-50 cursor-pointer flex items-center gap-2"
                                 >
                                     {isSubmitting && (
                                         <Loader2
@@ -428,6 +459,18 @@ export default function PermissionsPage() {
                     </div>
                 </div>
             )}
+
+            <ErrorPopup
+                isOpen={actionPopup.isOpen}
+                onClose={() =>
+                    setActionPopup({ ...actionPopup, isOpen: false })
+                }
+                title={actionPopup.title}
+                type={actionPopup.type}
+                message={actionPopup.message}
+                errors={actionPopup.errors}
+                onConfirm={actionPopup.onConfirm}
+            />
         </div>
     );
 }

@@ -444,12 +444,12 @@ export default function CanvasLayout() {
                         ) : (
                             <div className="flex items-center gap-3">
                                 <div>
-                                    <h2 className="font-semibold text-lg text-olive-900 leading-tight uppercase">
+                                    <h2 className="font-semibold text-lg rounded-sm text-olive-900 leading-tight uppercase">
                                         {flowDetail?.name || `Flow #${flowId}`}
                                     </h2>
                                 </div>
                                 <span
-                                    className={`text-[10px] font-black px-2 py-0.5 border border-black uppercase ${
+                                    className={`text-[10px] font-black px-2 py-0.5 rounded-sm border border-black uppercase ${
                                         flowDetail?.status === "active"
                                             ? "bg-green-300"
                                             : "bg-amber-200"
@@ -458,7 +458,7 @@ export default function CanvasLayout() {
                                     {flowDetail?.status || "draft"}
                                 </span>
                                 {editorApi.isDirty && (
-                                    <span className="text-[10px] font-black px-2 py-0.5 border border-amber-700 text-amber-800 bg-amber-100 uppercase animate-pulse">
+                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-sm border border-amber-700 text-amber-800 bg-amber-100 uppercase animate-pulse">
                                         Ada perubahan belum disimpan
                                     </span>
                                 )}
@@ -470,7 +470,7 @@ export default function CanvasLayout() {
                             type="button"
                             onClick={handleSaveFlow}
                             disabled={editorApi.isSaving || !editorApi.isDirty}
-                            className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-olive-900 bg-white border-2 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-olive-100 active:translate-y-1 active:shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-olive-900 bg-white rounded-sm border-2 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-olive-100 active:translate-y-1 active:shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {editorApi.isSaving ? (
                                 <Loader2 size={16} className="animate-spin" />
@@ -485,7 +485,7 @@ export default function CanvasLayout() {
                             type="button"
                             onClick={handleOpenSimModal}
                             disabled={isRunning}
-                            className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-green-600 border-2 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-green-500 active:translate-y-1 active:shadow-none cursor-pointer disabled:opacity-50"
+                            className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-green-600 rounded-sm border-2 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-green-500 active:translate-y-1 active:shadow-none cursor-pointer disabled:opacity-50"
                         >
                             {isRunning ? (
                                 <Loader2 size={16} className="animate-spin" />

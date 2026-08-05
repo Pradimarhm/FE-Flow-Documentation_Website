@@ -34,7 +34,7 @@ export default function ApiNode({ id, data, selected, className = "" }) {
 
     return (
         <div
-            className={`relative flex flex-col min-w-56 max-w-56 border-2 rounded-xs transition-all duration-200 
+            className={`relative flex flex-col min-w-56 max-w-56 rounded-sm border-2 transition-all duration-200 
             ${executionZIndex}
             ${selected ? "shadow-[8px_8px_0px_rgba(0,0,0,1)] -translate-y-1 ring-4 ring-black/20" : "shadow-[4px_4px_0px_rgba(0,0,0,1)]"} 
             ${executionRingClass}

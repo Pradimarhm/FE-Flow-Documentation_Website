@@ -1,7 +1,16 @@
-import React from "react";
+import React, { useState } from "react";
 import { useUser } from "../hooks/useUser";
-import { User, Plus, Trash2, Edit3, Loader2, RefreshCw, Search } from "lucide-react";
+import {
+    User,
+    Plus,
+    Trash2,
+    Edit3,
+    Loader2,
+    RefreshCw,
+    Search,
+} from "lucide-react";
 import { MASTER_ROLES } from "@/constants/permissionConstants";
+import ErrorPopup from "../components/error/errorPopUp";
 
 export default function UsersPage() {
     const {
@@ -12,8 +21,8 @@ export default function UsersPage() {
         formData,
         editingId,
         isModalOpen,
-        searchName,     // Dari hook
-        setSearchName,  // Dari hook
+        searchName,
+        setSearchName,
         handleInputChange,
         handleOpenCreateModal,
         handleOpenEditModal,
@@ -22,15 +31,79 @@ export default function UsersPage() {
         handleDelete,
     } = useUser();
 
+    const [actionPopup, setActionPopup] = useState({
+        isOpen: false,
+        title: "",
+        type: "error",
+        message: "",
+        errors: null,
+        onConfirm: null,
+    });
+
     const getRoleName = (roleId) => {
         const found = MASTER_ROLES.find((r) => r.id === Number(roleId));
         return found ? found.name : `Role #${roleId}`;
     };
 
+    const onFormSubmit = async (e) => {
+        try {
+            await handleSubmit(e);
+            setActionPopup({
+                isOpen: true,
+                title: editingId
+                    ? "Berhasil Mengubah User"
+                    : "Berhasil Menambah User",
+                type: "success",
+                message: `Data user berhasil ${editingId ? "diperbarui" : "ditambahkan"}.`,
+                onConfirm: null,
+            });
+        } catch (err) {
+            setActionPopup({
+                isOpen: true,
+                title: "Gagal Menyimpan User",
+                type: "error",
+                message:
+                    err?.message ||
+                    "Terjadi kesalahan saat menyimpan data user.",
+                errors: err?.errors || validationErrors || null,
+                onConfirm: null,
+            });
+        }
+    };
+
+    const promptDeleteUser = (id, name) => {
+        setActionPopup({
+            isOpen: true,
+            title: "Hapus User?",
+            type: "confirm",
+            message: `Apakah kamu yakin ingin menghapus user "${name}"? Tindakan ini tidak dapat dibatalkan.`,
+            onConfirm: async () => {
+                try {
+                    await handleDelete(id);
+                    setActionPopup({
+                        isOpen: true,
+                        title: "Berhasil Menghapus",
+                        type: "success",
+                        message: `User "${name}" telah berhasil dihapus dari sistem.`,
+                        onConfirm: null,
+                    });
+                } catch (err) {
+                    setActionPopup({
+                        isOpen: true,
+                        title: "Gagal Menghapus User",
+                        type: "error",
+                        message:
+                            err?.message || "Tidak dapat menghapus user ini.",
+                        errors: err?.errors || null,
+                        onConfirm: null,
+                    });
+                }
+            },
+        });
+    };
+
     return (
-        /* Menggunakan h-screen & overflow-hidden agar halaman pas 1 layar */
         <div className="w-full h-full bg-olive-50 p-6 flex flex-col gap-6 overflow-hidden">
-            {/* Header (Ukuran Tetap) */}
             <div className="flex-none flex flex-row justify-between items-center bg-olive-50 p-4 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
                 <div>
                     <h1 className="text-xl font-black text-olive-900 uppercase tracking-wide flex items-center gap-2">
@@ -41,9 +114,11 @@ export default function UsersPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    {/* INPUT SEARCH NAME */}
                     <div className="relative flex items-center">
-                        <Search size={16} className="absolute left-3 text-olive-700 pointer-events-none" />
+                        <Search
+                            size={16}
+                            className="absolute left-3 text-olive-700 pointer-events-none"
+                        />
                         <input
                             type="text"
                             placeholder="Cari user via nama..."
@@ -68,26 +143,30 @@ export default function UsersPage() {
                 </div>
             </div>
 
-            {/* Area Tabel */}
             <div className="flex bg-white p-5 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] overflow-y-auto relative">
                 {isLoading && !isModalOpen ? (
                     <div className="flex w-full justify-center items-center gap-2 text-olive-800 font-bold">
-                        <Loader2 size={20} className="animate-spin" /> Memuat data user...
+                        <Loader2 size={20} className="animate-spin" /> Memuat
+                        data user...
                     </div>
                 ) : error ? (
                     <div className="w-full p-4 bg-red-100 border-l-4 border-red-500 text-red-700 font-bold text-sm">
-                        {error}
+                        ⚠️ {error}
                     </div>
                 ) : (
                     <div className="relative flex-1 overflow-y-auto">
                         <table className="w-full text-left text-sm border-collapse">
                             <thead className="bg-olive-200 border-b-2 border-olive-900 text-xs uppercase font-black sticky top-0 z-10">
                                 <tr>
-                                    <th className="p-3 w-16 bg-olive-200">ID</th>
+                                    <th className="p-3 w-16 bg-olive-200">
+                                        ID
+                                    </th>
                                     <th className="p-3 bg-olive-200">Nama</th>
                                     <th className="p-3 bg-olive-200">Email</th>
                                     <th className="p-3 bg-olive-200">Role</th>
-                                    <th className="p-3 text-center w-28 bg-olive-200">Aksi</th>
+                                    <th className="p-3 text-center w-28 bg-olive-200">
+                                        Aksi
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -119,20 +198,32 @@ export default function UsersPage() {
                                             </td>
                                             <td className="p-3 font-bold">
                                                 <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-olive-200 border border-black">
-                                                    {item.role?.name || getRoleName(item.role_id)}
+                                                    {item.role?.name ||
+                                                        getRoleName(
+                                                            item.role_id,
+                                                        )}
                                                 </span>
                                             </td>
                                             <td className="p-3">
                                                 <div className="flex justify-center gap-2">
                                                     <button
-                                                        onClick={() => handleOpenEditModal(item)}
+                                                        onClick={() =>
+                                                            handleOpenEditModal(
+                                                                item,
+                                                            )
+                                                        }
                                                         className="p-1.5 bg-amber-300 border border-black hover:bg-amber-400 cursor-pointer"
                                                         title="Edit"
                                                     >
                                                         <Edit3 size={14} />
                                                     </button>
                                                     <button
-                                                        onClick={() => handleDelete(item.id)}
+                                                        onClick={() =>
+                                                            promptDeleteUser(
+                                                                item.id,
+                                                                item.name,
+                                                            )
+                                                        }
                                                         className="p-1.5 bg-rose-400 text-white border border-black hover:bg-rose-500 cursor-pointer"
                                                         title="Hapus"
                                                     >
@@ -149,16 +240,15 @@ export default function UsersPage() {
                 )}
             </div>
 
-            {/* Modal Create / Edit */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-olive-50 border-4 border-olive-900 shadow-[8px_8px_0px_rgba(0,0,0,1)] w-full max-w-md p-6 flex flex-col gap-4">
+                    <div className="bg-olive-50 rounded-md border-4 border-olive-900 shadow-[8px_8px_0px_rgba(0,0,0,1)] w-full max-w-md p-6 flex flex-col gap-4">
                         <h2 className="text-lg font-black uppercase tracking-wider border-b-2 border-olive-900 pb-2">
                             {editingId ? "Edit User" : "Tambah User"}
                         </h2>
 
                         <form
-                            onSubmit={handleSubmit}
+                            onSubmit={onFormSubmit}
                             className="flex flex-col gap-4"
                         >
                             <div className="flex flex-col gap-1">
@@ -170,7 +260,7 @@ export default function UsersPage() {
                                     required
                                     value={formData.role_id}
                                     onChange={handleInputChange}
-                                    className="p-2 border-2 border-black text-sm bg-white outline-none font-semibold cursor-pointer"
+                                    className="p-2 border-2 rounded-sm border-black text-sm bg-white outline-none font-semibold cursor-pointer"
                                 >
                                     <option value="">-- Pilih Role --</option>
                                     {MASTER_ROLES.map((r) => (
@@ -179,11 +269,6 @@ export default function UsersPage() {
                                         </option>
                                     ))}
                                 </select>
-                                {validationErrors?.role_id && (
-                                    <span className="text-[11px] font-bold text-red-600">
-                                        {validationErrors.role_id[0]}
-                                    </span>
-                                )}
                             </div>
 
                             <div className="flex flex-col gap-1">
@@ -196,13 +281,8 @@ export default function UsersPage() {
                                     required
                                     value={formData.name}
                                     onChange={handleInputChange}
-                                    className="p-2 border-2 border-black text-sm bg-white outline-none font-semibold"
+                                    className="p-2 border-2 rounded-sm border-black text-sm bg-white outline-none font-semibold"
                                 />
-                                {validationErrors?.name && (
-                                    <span className="text-[11px] font-bold text-red-600">
-                                        {validationErrors.name[0]}
-                                    </span>
-                                )}
                             </div>
 
                             <div className="flex flex-col gap-1">
@@ -215,13 +295,8 @@ export default function UsersPage() {
                                     required
                                     value={formData.email}
                                     onChange={handleInputChange}
-                                    className="p-2 border-2 border-black text-sm bg-white outline-none font-semibold"
+                                    className="p-2 rounded-sm border-2 border-black text-sm bg-white outline-none font-semibold"
                                 />
-                                {validationErrors?.email && (
-                                    <span className="text-[11px] font-bold text-red-600">
-                                        {validationErrors.email[0]}
-                                    </span>
-                                )}
                             </div>
 
                             <div className="flex flex-col gap-1">
@@ -239,27 +314,22 @@ export default function UsersPage() {
                                     required={!editingId}
                                     value={formData.password}
                                     onChange={handleInputChange}
-                                    className="p-2 border-2 border-black text-sm bg-white outline-none font-semibold"
+                                    className="p-2 rounded-sm border-2 border-black text-sm bg-white outline-none font-semibold"
                                 />
-                                {validationErrors?.password && (
-                                    <span className="text-[11px] font-bold text-red-600">
-                                        {validationErrors.password[0]}
-                                    </span>
-                                )}
                             </div>
 
                             <div className="flex justify-end gap-2 mt-2">
                                 <button
                                     type="button"
                                     onClick={handleCloseModal}
-                                    className="px-4 py-2 border-2 border-black bg-white font-bold text-xs hover:bg-gray-100 cursor-pointer"
+                                    className="px-4 py-2 rounded-sm border-2 border-black bg-white font-bold text-xs hover:bg-gray-100 cursor-pointer"
                                 >
                                     Batal
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="px-4 py-2 border-2 border-black bg-green-500 text-white font-bold text-xs hover:bg-green-600 disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                                    className="px-4 py-2 rounded-sm border-2 border-black bg-green-500 text-white font-bold text-xs hover:bg-green-600 disabled:opacity-50 cursor-pointer flex items-center gap-2"
                                 >
                                     {isLoading && (
                                         <Loader2
@@ -274,6 +344,18 @@ export default function UsersPage() {
                     </div>
                 </div>
             )}
+
+            <ErrorPopup
+                isOpen={actionPopup.isOpen}
+                onClose={() =>
+                    setActionPopup({ ...actionPopup, isOpen: false })
+                }
+                title={actionPopup.title}
+                type={actionPopup.type}
+                message={actionPopup.message}
+                errors={actionPopup.errors}
+                onConfirm={actionPopup.onConfirm}
+            />
         </div>
     );
 }

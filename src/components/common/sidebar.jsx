@@ -18,15 +18,20 @@ import ErrorPopup from "../error/errorPopUp";
 
 const Sidebar = () => {
     const [isCollapsed, setIsCollapsed] = useState(true);
+
+    // Config Popup universal mendukung konfirmasi & alert feedback
     const [popupState, setPopupState] = useState({
         isOpen: false,
         title: "",
+        type: "error",
         message: "",
+        onConfirm: null,
     });
 
     const logoutStore = useAuthStore((state) => state.logout);
     const user = useAuthStore((state) => state.user);
-    const modules = useAuthStore((state) => state.modules) || user?.modules || [];
+    const modules =
+        useAuthStore((state) => state.modules) || user?.modules || [];
     const navigate = useNavigate();
 
     // Mapping icon statis berdasarkan slug modul dari backend
@@ -40,44 +45,62 @@ const Sidebar = () => {
 
     // Daftar menu default
     const defaultNavItems = [
-        { name: "Dashboard", icon: LayoutDashboard, path: "/", slug: "dashboard" },
-        { name: "Flows & Canvas", icon: Network, path: "/flows", slug: "flows" },
-        { name: "Templates", icon: Boxes, path: "/templates", slug: "templates" },
-        { name: "Permissions", icon: Shield, path: "/permissions", slug: "permissions" },
+        {
+            name: "Dashboard",
+            icon: LayoutDashboard,
+            path: "/",
+            slug: "dashboard",
+        },
+        {
+            name: "Flows & Canvas",
+            icon: Network,
+            path: "/flows",
+            slug: "flows",
+        },
+        {
+            name: "Templates",
+            icon: Boxes,
+            path: "/templates",
+            slug: "templates",
+        },
+        {
+            name: "Permissions",
+            icon: Shield,
+            path: "/permissions",
+            slug: "permissions",
+        },
         { name: "Users", icon: Users, path: "/users", slug: "users" },
     ];
 
     // Filter menu berdasarkan permission.read dari UserResource
     const authorizedNavItems = defaultNavItems.filter((item) => {
-        // Dashboard selalu diperbolehkan
         if (item.slug === "dashboard") return true;
-
-        // Cari modul yang sesuai dari array modules UserResource
         const userModule = modules.find((m) => m.slug === item.slug);
         if (!userModule || !userModule.permission) return false;
-
-        // Cek izin 'read' pada objek permission
         return Boolean(userModule.permission.read);
     });
 
-    const handleLogout = async () => {
-        try {
-            await authService.logout();
-        } catch (e) {
-            console.error("Gagal logout di backend", e);
-        } finally {
-            setPopupState({
-                isOpen: true,
-                title: "Berhasil",
-                message: "Berhasil Keluar Akun",
-            });
-        }
-    };
-
-    const handleClosePopup = () => {
-        setPopupState({ ...popupState, isOpen: false });
-        logoutStore();
-        navigate("/auth", { replace: true });
+    // Triggers saat tombol Keluar Akun diklik -> Munculkan Popup Konfirmasi
+    const promptLogout = () => {
+        setPopupState({
+            isOpen: true,
+            title: "Keluar Akun?",
+            type: "confirm",
+            message: "Apakah kamu yakin ingin keluar dari aplikasi FlowTech?",
+            onConfirm: async () => {
+                try {
+                    // Panggil API Logout di backend (Tombol di popup otomatis loading spin)
+                    await authService.logout();
+                } catch (e) {
+                    console.error("Gagal logout di backend:", e);
+                } finally {
+                    // Bersihkan store Zustand & Redirect
+                    logoutStore();
+                    setPopupState({ ...popupState, isOpen: false });
+                    navigate("/auth", { replace: true });
+                }
+            },
+        });
     };
 
     return (
@@ -94,9 +117,6 @@ const Sidebar = () => {
                 {!isCollapsed && (
                     <span className="flex flex-col text-xl font-semibold tracking-tight text-olive-500 truncate">
                         FlowTech
-                        {/* <span className="text-xs font-normal tracking-tight text-black truncate">
-                            help your flow and documentation
-                        </span> */}
                     </span>
                 )}
                 <button
@@ -164,7 +184,7 @@ const Sidebar = () => {
                 </NavLink>
 
                 <button
-                    onClick={handleLogout}
+                    onClick={promptLogout}
                     className={`flex h-12 items-center px-3 py-2 rounded-sm hover:border-2 hover:border-rose-500 hover:border-dashed transition-colors cursor-pointer ${
                         isCollapsed
                             ? "justify-center text-rose-500 hover:bg-rose-50"
@@ -179,11 +199,16 @@ const Sidebar = () => {
                 </button>
             </div>
 
+            {/* Modal Popup Konfirmasi Logout */}
             <ErrorPopup
                 isOpen={popupState.isOpen}
-                onClose={handleClosePopup}
+                onClose={() => setPopupState({ ...popupState, isOpen: false })}
                 title={popupState.title}
+                type={popupState.type}
                 message={popupState.message}
+                onConfirm={popupState.onConfirm}
+                confirmLabel="Ya, Keluar"
+                cancelLabel="Batal"
             />
         </aside>
     );

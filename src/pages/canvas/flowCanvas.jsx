@@ -151,7 +151,7 @@ export default function FlowCanvas({
             {menu && (
                 <div
                     style={{ top: menu.top, left: menu.left }}
-                    className="absolute z-50 bg-olive-50 border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] flex flex-col w-44"
+                    className="absolute z-50 bg-olive-50 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] flex flex-col w-44"
                     onClick={(e) => e.stopPropagation()}
                 >
                     {menu.type === "node" && (

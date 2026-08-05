@@ -8,63 +8,70 @@ import {
     Trash2,
     Sparkles,
     Search,
-    X
+    X,
 } from "lucide-react";
 import { flowService } from "@/services/flowService";
-import { aiService } from "@/services/aiService"; // Import service AI
+import { aiService } from "@/services/aiService";
+import ErrorPopup from "../components/error/errorPopUp";
 
 export default function FlowListPage() {
     const navigate = useNavigate();
     const [flows, setFlows] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(null);
 
-    // State Search
     const [searchQuery, setSearchQuery] = useState("");
 
-    // Modal Create Flow State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [flowName, setFlowName] = useState("");
     const [flowDescription, setFlowDescription] = useState("");
     const [version, setVersion] = useState("v1.0");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isGenerating, setIsGenerating] = useState(false); // State loading untuk AI
+    const [isGenerating, setIsGenerating] = useState(false);
 
-    // Modal Delete Flow State
-    const [deletingFlow, setDeletingFlow] = useState(null);
-    const [isDeleting, setIsDeleting] = useState(false);
+    const [actionPopup, setActionPopup] = useState({
+        isOpen: false,
+        title: "",
+        type: "error",
+        message: "",
+        errors: null,
+        onConfirm: null,
+    });
 
-    // Fetch Flow berdasarkan nama / query
     const fetchFlows = async (query = "") => {
         try {
             setIsLoading(true);
+            setFetchError(null);
             const res = await flowService.getFlows(query);
             const flowData = res?.data?.data || res?.data || res || [];
             setFlows(Array.isArray(flowData) ? flowData : []);
         } catch (err) {
             console.error("Gagal mengambil daftar flow:", err);
+            setFetchError(
+                err?.message || "Gagal memuat daftar flow dari server.",
+            );
             setFlows([]);
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Debounce effect untuk live search
     useEffect(() => {
         const timer = setTimeout(() => {
             fetchFlows(searchQuery);
-        }, 300); // delay 300ms
-
+        }, 300);
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // useEffect(() => {
-    //     fetchFlows();
-    // }, []);
-
-    // Handler AI untuk generate deskripsi otomatis via Gemini
     const handleAIGenerate = async () => {
         if (!flowName.trim()) {
-            alert("Isi Nama Flow terlebih dahulu!");
+            setActionPopup({
+                isOpen: true,
+                title: "Input Kurang Lengkap",
+                type: "warning",
+                message: "Isi Nama Flow terlebih dahulu!",
+                onConfirm: null,
+            });
             return;
         }
 
@@ -75,8 +82,13 @@ export default function FlowListPage() {
                 setFlowDescription(res.description);
             }
         } catch (error) {
-            console.error("Gagal generate deskripsi via AI:", error);
-            alert(`Gagal generate AI: ${error.message}`);
+            setActionPopup({
+                isOpen: true,
+                title: "Gagal Generate AI",
+                type: "error",
+                message: error.message || "Gagal generate deskripsi via AI.",
+                onConfirm: null,
+            });
         } finally {
             setIsGenerating(false);
         }
@@ -104,34 +116,61 @@ export default function FlowListPage() {
                 setFlowDescription("");
                 navigate(`/flows/${flowId}`);
             } else {
-                alert("Gagal mendapatkan ID Flow dari server.");
+                setActionPopup({
+                    isOpen: true,
+                    title: "Gagal Membuat Flow",
+                    type: "error",
+                    message: "Gagal mendapatkan ID Flow dari server.",
+                    onConfirm: null,
+                });
             }
         } catch (error) {
-            console.error("Gagal membuat flow:", error);
-            alert("Terjadi kesalahan saat membuat flow.");
+            setActionPopup({
+                isOpen: true,
+                title: "Gagal Membuat Flow",
+                type: "error",
+                message:
+                    error?.message || "Terjadi kesalahan saat membuat flow.",
+                onConfirm: null,
+            });
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleDeleteFlow = async () => {
-        if (!deletingFlow) return;
-        const targetId = deletingFlow.id || deletingFlow.uuid;
-
-        try {
-            setIsDeleting(true);
-            await flowService.deleteFlow(targetId);
-
-            setFlows((prev) =>
-                prev.filter((f) => (f.id || f.uuid) !== targetId),
-            );
-            setDeletingFlow(null);
-        } catch (error) {
-            console.error(`Gagal menghapus flow #${targetId}:`, error);
-            alert("Terjadi kesalahan saat menghapus flow.");
-        } finally {
-            setIsDeleting(false);
-        }
+    const promptDeleteFlow = (flow) => {
+        const targetId = flow.id || flow.uuid;
+        setActionPopup({
+            isOpen: true,
+            title: "Hapus Flow Project?",
+            type: "confirm",
+            message: `Apakah kamu yakin ingin menghapus flow "${flow.name}"? Tindakan ini tidak dapat dibatalkan.`,
+            onConfirm: async () => {
+                try {
+                    await flowService.deleteFlow(targetId);
+                    setFlows((prev) =>
+                        prev.filter((f) => (f.id || f.uuid) !== targetId),
+                    );
+                    setActionPopup({
+                        isOpen: true,
+                        title: "Berhasil Menghapus",
+                        type: "success",
+                        message: `Flow project "${flow.name}" berhasil dihapus.`,
+                        onConfirm: null,
+                    });
+                } catch (error) {
+                    setActionPopup({
+                        isOpen: true,
+                        title: "Gagal Menghapus",
+                        type: "error",
+                        message:
+                            error?.message ||
+                            "Terjadi kesalahan saat menghapus flow.",
+                        onConfirm: null,
+                    });
+                }
+            },
+        });
     };
 
     return (
@@ -147,7 +186,6 @@ export default function FlowListPage() {
                 </div>
 
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                    {/* Input Search */}
                     <div className="relative flex-1 md:w-72">
                         <Search
                             size={18}
@@ -170,7 +208,6 @@ export default function FlowListPage() {
                         )}
                     </div>
 
-                    {/* Button Create */}
                     <button
                         onClick={() => setIsModalOpen(true)}
                         className="flex items-center gap-2 px-4 py-2 rounded-sm bg-green-500 text-white font-bold border-2 border-olive-900 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-green-700 active:translate-y-1 active:shadow-none transition-all cursor-pointer whitespace-nowrap"
@@ -178,42 +215,16 @@ export default function FlowListPage() {
                         <Plus size={18} /> New Flow
                     </button>
                 </div>
-
-                {/* Input Search
-                <div className="relative flex-1 md:w-72">
-                    <Search
-                        size={18}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-olive-700 pointer-events-none"
-                    />
-                    <input
-                        type="text"
-                        placeholder="Cari flow berdasarkan nama..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-8 py-2 bg-white border-2 border-olive-900 text-sm font-semibold text-olive-900 placeholder:text-olive-400 outline-none shadow-[2px_2px_0px_rgba(0,0,0,1)] focus:shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-all"
-                    />
-                    {searchQuery && (
-                        <button
-                            onClick={() => setSearchQuery("")}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-olive-600 hover:text-olive-900 cursor-pointer"
-                        >
-                            <X size={16} />
-                        </button>
-                    )}
-                </div>
-
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white font-bold border-2 border-olive-900 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-green-700 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-                >
-                    <Plus size={18} /> New Flow
-                </button> */}
             </div>
 
             {isLoading ? (
                 <div className="flex items-center gap-2 text-olive-900 font-bold">
                     <Loader2 size={20} className="animate-spin" /> Memuat daftar
                     flow...
+                </div>
+            ) : fetchError ? (
+                <div className="bg-red-100 border-2 border-olive-900 p-4 font-bold text-red-900 rounded-sm">
+                    ⚠️ {fetchError}
                 </div>
             ) : flows.length === 0 ? (
                 <div className="bg-white border-4 rounded-sm border-olive-900 p-8 text-center font-bold text-olive-800 shadow-[6px_6px_0px_rgba(0,0,0,1)]">
@@ -247,7 +258,7 @@ export default function FlowListPage() {
                                             title="Hapus Flow"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setDeletingFlow(flow);
+                                                promptDeleteFlow(flow);
                                             }}
                                             className="p-1.5 bg-rose-100 hover:bg-rose-500 hover:text-white text-rose-700 border-2 border-olive-900 transition-colors cursor-pointer"
                                         >
@@ -282,7 +293,7 @@ export default function FlowListPage() {
             {/* Modal Create Flow */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-                    <div className="bg-olive-50 border-4 border-olive-900 p-6 w-full max-w-md shadow-[10px_10px_0px_rgba(0,0,0,1)]">
+                    <div className="bg-olive-50 rounded-md border-4 border-olive-900 p-6 w-full max-w-md shadow-[10px_10px_0px_rgba(0,0,0,1)]">
                         <h2 className="text-xl font-black text-olive-900 uppercase mb-4">
                             Buat Flow Baru
                         </h2>
@@ -302,7 +313,7 @@ export default function FlowListPage() {
                                     onChange={(e) =>
                                         setFlowName(e.target.value)
                                     }
-                                    className="p-2 border-2 border-olive-900 bg-white text-sm font-semibold outline-none"
+                                    className="p-2 rounded-sm border-2 border-olive-900 bg-white text-sm font-semibold outline-none"
                                 />
                             </div>
 
@@ -315,7 +326,7 @@ export default function FlowListPage() {
                                     required
                                     value={version}
                                     onChange={(e) => setVersion(e.target.value)}
-                                    className="p-2 border-2 border-olive-900 bg-white text-sm font-semibold outline-none"
+                                    className="p-2 rounded-sm border-2 border-olive-900 bg-white text-sm font-semibold outline-none"
                                 />
                             </div>
 
@@ -324,14 +335,13 @@ export default function FlowListPage() {
                                     <label className="text-xs font-bold text-olive-900 uppercase">
                                         Deskripsi
                                     </label>
-                                    {/* Tombol AI Gemini disisip di header label deskripsi */}
                                     <button
                                         type="button"
                                         onClick={handleAIGenerate}
                                         disabled={
                                             isGenerating || !flowName.trim()
                                         }
-                                        className="flex items-center gap-1 text-[11px] font-black text-black bg-amber-300 px-2 py-0.5 border-2 border-olive-900 shadow-[1.5px_1.5px_0px_rgba(0,0,0,1)] hover:bg-amber-400 active:translate-y-0.5 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
+                                        className="flex items-center gap-1 text-[11px] font-black text-black bg-amber-300 px-2 py-0.5 rounded-sm border-2 border-olive-900 shadow-[1.5px_1.5px_0px_rgba(0,0,0,1)] hover:bg-amber-400 active:translate-y-0.5 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
                                     >
                                         {isGenerating ? (
                                             <>
@@ -356,7 +366,7 @@ export default function FlowListPage() {
                                     onChange={(e) =>
                                         setFlowDescription(e.target.value)
                                     }
-                                    className="p-2 border-2 border-olive-900 bg-white text-xs outline-none"
+                                    className="p-2 rounded-sm border-2 border-olive-900 bg-white text-xs outline-none"
                                 />
                             </div>
 
@@ -364,14 +374,14 @@ export default function FlowListPage() {
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
-                                    className="px-4 py-2 border-2 border-olive-900 bg-white text-xs font-bold hover:bg-olive-200 cursor-pointer"
+                                    className="px-4 py-2 rounded-sm border-2 border-olive-900 bg-white text-xs font-bold hover:bg-olive-200 cursor-pointer"
                                 >
                                     Batal
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className="px-4 py-2 border-2 border-olive-900 bg-green-500 text-white text-xs font-bold shadow-[2px_2px_0px_rgba(0,0,0,1)] -translate-y-0.5 hover:bg-green-700 active:translate-y-0 active:shadow-none transition-all cursor-pointer disabled:opacity-50"
+                                    className="px-4 py-2 rounded-sm border-2 border-olive-900 bg-green-500 text-white text-xs font-bold shadow-[2px_2px_0px_rgba(0,0,0,1)] -translate-y-0.5 hover:bg-green-700 active:translate-y-0 active:shadow-none transition-all cursor-pointer disabled:opacity-50"
                                 >
                                     {isSubmitting
                                         ? "Membuat..."
@@ -383,59 +393,17 @@ export default function FlowListPage() {
                 </div>
             )}
 
-            {/* Pop-up Modal Konfirmasi Hapus */}
-            {deletingFlow && (
-                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-                    <div className="bg-white border-4 border-olive-900 p-6 w-full max-w-sm shadow-[10px_10px_0px_rgba(0,0,0,1)] flex flex-col gap-4">
-                        <div className="flex items-center gap-3 border-b-2 border-olive-900 pb-3">
-                            <div className="p-2 bg-rose-100 border-2 border-olive-900 text-rose-600">
-                                <Trash2 size={20} />
-                            </div>
-                            <h3 className="text-lg font-black text-olive-900 uppercase">
-                                Hapus Flow?
-                            </h3>
-                        </div>
-
-                        <p className="text-xs font-semibold text-olive-800 leading-relaxed">
-                            Apakah kamu yakin ingin menghapus flow{" "}
-                            <span className="font-black underline text-black">
-                                "{deletingFlow.name}"
-                            </span>
-                            ? Tindakan ini tidak dapat dibatalkan dan seluruh
-                            node/koneksi di dalamnya akan terhapus.
-                        </p>
-
-                        <div className="flex justify-end gap-2 mt-2">
-                            <button
-                                type="button"
-                                disabled={isDeleting}
-                                onClick={() => setDeletingFlow(null)}
-                                className="px-4 py-2 border-2 border-olive-900 bg-white text-xs font-bold hover:bg-olive-200 cursor-pointer disabled:opacity-50"
-                            >
-                                Batal
-                            </button>
-                            <button
-                                type="button"
-                                disabled={isDeleting}
-                                onClick={handleDeleteFlow}
-                                className="flex items-center gap-2 px-4 py-2 border-2 border-olive-900 bg-rose-600 text-white text-xs font-bold shadow-[2px_2px_0px_rgba(0,0,0,1)] -translate-y-0.5 hover:bg-rose-700 active:translate-y-0 active:shadow-none transition-all cursor-pointer disabled:opacity-50"
-                            >
-                                {isDeleting ? (
-                                    <>
-                                        <Loader2
-                                            size={14}
-                                            className="animate-spin"
-                                        />
-                                        Menghapus...
-                                    </>
-                                ) : (
-                                    "Ya, Hapus Flow"
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ErrorPopup
+                isOpen={actionPopup.isOpen}
+                onClose={() =>
+                    setActionPopup({ ...actionPopup, isOpen: false })
+                }
+                title={actionPopup.title}
+                type={actionPopup.type}
+                message={actionPopup.message}
+                errors={actionPopup.errors}
+                onConfirm={actionPopup.onConfirm}
+            />
         </div>
     );
 }
