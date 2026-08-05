@@ -1,6 +1,6 @@
 // src/router/RoleProtectedRoute.jsx
-import { Navigate, Outlet } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuthStore } from "../store/authStore";
 
 export default function RoleProtectedRoute({ moduleSlug }) {
     const { isAuthenticated, hasPermission } = useAuthStore();
@@ -11,15 +11,19 @@ export default function RoleProtectedRoute({ moduleSlug }) {
     }
 
     // 2. Jika modul ini adalah dashboard (publik untuk semua user login), langsung izinkan
-    if (moduleSlug === 'dashboard') {
+    if (moduleSlug === "dashboard") {
         return <Outlet />;
     }
 
     // 3. Lapis kedua: RBAC Macro-Protection
     // Cari apakah user memiliki akses 'read' ke modul slug yang diminta
-    const hasAccess = hasPermission?.some(
-        (p) => p.module === moduleSlug && p.actions.includes('read')
-    );
+    // const hasAccess = hasPermission?.some(
+    //     (p) => p.module === moduleSlug && p.actions.includes('read')
+    // );
+    const hasAccess =
+        typeof hasPermission === "function"
+            ? hasPermission(moduleSlug, "read")
+            : false;
 
     // Jika user memaksa masuk via URL tanpa permission, tendang kembali ke Dashboard
     if (!hasAccess) {
