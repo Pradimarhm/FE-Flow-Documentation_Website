@@ -1,34 +1,69 @@
 // src/services/connectionService.js
-import apiClient from './apiClient';
+import apiClient from "./apiClient";
 
 export const connectionService = {
-    // GET /flows/{flow}/connections
+    formatConnectionPayload(edgeData) {
+        const rawLabel =
+            edgeData.branch_label ?? edgeData.label ?? edgeData.condition_value;
+        return {
+            source_node_id: String(edgeData.source_node_id || edgeData.source),
+            target_node_id: String(edgeData.target_node_id || edgeData.target),
+            branch_label: rawLabel
+                ? String(rawLabel).toLowerCase().trim()
+                : null,
+        };
+    },
+
     getConnectionsByFlow: async (flowId) => {
-        const response = await apiClient.get(`/flows/${flowId}/connections`);
-        return response; // <-- tambahkan return
+        try {
+            return await apiClient.get(`/flows/${flowId}/connections`);
+        } catch (error) {
+            throw error.response?.data || error;
+        }
     },
 
-    // POST /flows/{flow}/connections
     createConnection: async (flowId, payload) => {
-        const response = await apiClient.post(`/flows/${flowId}/connections`, payload);
-        return response;
+        try {
+            const formattedPayload =
+                connectionService.formatConnectionPayload(payload);
+            return await apiClient.post(
+                `/flows/${flowId}/connections`,
+                formattedPayload,
+            );
+        } catch (error) {
+            throw error.response?.data || error;
+        }
     },
 
-    // GET /connections/{connection}
     getConnectionById: async (connectionId) => {
-        const response = await apiClient.get(`/connections/${connectionId}`);
-        return response;
+        try {
+            return await apiClient.get(`/connections/${connectionId}`);
+        } catch (error) {
+            throw error.response?.data || error;
+        }
     },
 
-    // PUT /connections/{connection}
     updateConnection: async (connectionId, payload) => {
-        const response = await apiClient.put(`/connections/${connectionId}`, payload);
-        return response;
+        try {
+            const formattedPayload =
+                connectionService.formatConnectionPayload(payload);
+            return await apiClient.put(
+                `/connections/${connectionId}`,
+                formattedPayload,
+            );
+        } catch (error) {
+            throw error.response?.data || error;
+        }
     },
 
-    // DELETE /connections/{connection}
     deleteConnection: async (connectionId) => {
-        const response = await apiClient.delete(`/connections/${connectionId}`);
-        return response;
-    }
+        try {
+            return await apiClient.delete(`/connections/${connectionId}`);
+        } catch (error) {
+            // Re-throw dengan menyertakan status code HTTP Axios agar bisa dicek di useFlowEditor
+            const errData = error.response?.data || {};
+            errData.status = error.response?.status || error.status || 500;
+            throw errData;
+        }
+    },
 };

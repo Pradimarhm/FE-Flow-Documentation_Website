@@ -18,6 +18,7 @@ export default function ErrorPopup({
     onConfirm = null,
     confirmLabel = "Ya, Lanjutkan",
     cancelLabel = "Batal",
+    loadingLabel = "Memproses...", // 👈 Dibuat fleksibel (bisa "Menyimpan...", "Menghapus...", dll)
 }) {
     const [isConfirmLoading, setIsConfirmLoading] = useState(false);
 
@@ -31,7 +32,8 @@ export default function ErrorPopup({
 
         try {
             setIsConfirmLoading(true);
-            await onConfirm(); // Menunggu proses API delete/action selesai
+            await onConfirm(); // Menunggu proses API selesai
+            onClose(); // 🚀 FIX KRUSIAL: Otomatis tutup popup setelah proses sukses!
         } catch (err) {
             console.error("Error pada konfirmasi aksi:", err);
         } finally {
@@ -62,7 +64,7 @@ export default function ErrorPopup({
             confirm: {
                 bg: "bg-amber-100",
                 border: "border-amber-900",
-                btn: "bg-rose-600 text-white hover:bg-rose-700",
+                btn: "bg-green-600 text-white hover:bg-green-700", // 👈 Warna hijau biar lebih ramah konfirmasi
                 icon: <HelpCircle className="w-6 h-6 text-amber-600" />,
             },
         }[type] || config.error;
@@ -132,11 +134,11 @@ export default function ErrorPopup({
                                             size={14}
                                             className="animate-spin"
                                         />
-                                        Menghapus...
+                                        {loadingLabel}
                                     </>
                                 ) : (
                                     confirmLabel
-                                )}  
+                                )}
                             </button>
                         </>
                     ) : (

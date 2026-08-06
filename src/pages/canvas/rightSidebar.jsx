@@ -1,25 +1,30 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useReactFlow } from "@xyflow/react";
 
-// Catatan skema penyimpanan:
-// Sebelumnya komponen ini nge-debounce lalu langsung PUT /nodes/{id} tiap
-// user ngetik. Itu bentrok dengan skema 2 (Simpan Flow manual) yang sekarang
-// dipakai di seluruh canvas -> sekarang RightSidebar HANYA mengubah node di
-// canvas (state lokal React Flow) dan menandai node itu "dirty" lewat
-// onNodeDataChange. Data baru benar-benar terkirim ke backend saat user klik
-// tombol "Simpan Flow" di header (lihat useFlowEditor.saveFlow).
 export default function RightSidebar({ selectedNode, onNodeDataChange }) {
     const { setNodes } = useReactFlow();
     const [formData, setFormData] = useState({});
+    const [jsonInputText, setJsonInputText] = useState("");
     const [justEdited, setJustEdited] = useState(false);
     const editedTimerRef = useRef(null);
 
     useEffect(() => {
         if (selectedNode) {
-            setFormData(selectedNode.data || {});
+            const data = selectedNode.data || {};
+            setFormData(data);
+
+            // Ambil input_params dengan fallback
+            const params = data.config?.input_params || {};
+            setJsonInputText(
+                typeof params === "object"
+                    ? JSON.stringify(params, null, 2)
+                    : String(params),
+            );
+
             setJustEdited(false);
         } else {
             setFormData({});
+            setJsonInputText("");
         }
         return () => clearTimeout(editedTimerRef.current);
     }, [selectedNode]);
@@ -44,22 +49,29 @@ export default function RightSidebar({ selectedNode, onNodeDataChange }) {
     };
 
     const handleConfigChange = (field, value) => {
-        let parsedValue = value;
+        applyChange({
+            ...formData,
+            config: {
+                ...(formData.config || {}),
+                [field]: value,
+            },
+        });
+    };
 
-        // Coba parse jika field bertipe JSON
-        if (field === "input_params" || field === "output_template") {
-            try {
-                parsedValue = JSON.parse(value);
-            } catch (e) {
-                parsedValue = value;
-            }
+    const handleJsonChange = (rawText) => {
+        setJsonInputText(rawText);
+        let parsedValue = rawText;
+        try {
+            parsedValue = JSON.parse(rawText);
+        } catch (e) {
+            parsedValue = rawText;
         }
 
         applyChange({
             ...formData,
             config: {
                 ...(formData.config || {}),
-                [field]: parsedValue,
+                input_params: parsedValue,
             },
         });
     };
@@ -67,6 +79,12 @@ export default function RightSidebar({ selectedNode, onNodeDataChange }) {
     const handleRootChange = (field, value) => {
         applyChange({ ...formData, [field]: value });
     };
+
+    const nodeCategory = (
+        formData.category ||
+        formData.type ||
+        "process"
+    ).toLowerCase();
 
     return (
         <div className="w-full h-full bg-olive-50 border-l-2 border-olive-900 flex flex-col overflow-y-auto">
@@ -89,6 +107,7 @@ export default function RightSidebar({ selectedNode, onNodeDataChange }) {
             </div>
 
             <div className="p-4 flex flex-col gap-4">
+                {/* NODE LABEL */}
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-olive-900 uppercase">
                         Node Label
@@ -99,16 +118,17 @@ export default function RightSidebar({ selectedNode, onNodeDataChange }) {
                         onChange={(e) =>
                             handleRootChange("label", e.target.value)
                         }
-                        className="p-2 border-2 border-olive-900 text-sm font-semibold outline-none"
+                        className="p-2 border-2 border-olive-900 text-sm font-semibold outline-none bg-white"
                     />
                 </div>
 
+                {/* NODE CATEGORY */}
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-olive-900 uppercase">
                         Node Category
                     </label>
                     <select
-                        value={formData.category || formData.type || "process"}
+                        value={nodeCategory}
                         onChange={(e) =>
                             handleRootChange("category", e.target.value)
                         }
@@ -124,28 +144,40 @@ export default function RightSidebar({ selectedNode, onNodeDataChange }) {
                     </select>
                 </div>
 
+                {/* INPUT PARAMS (JSON) */}
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-olive-900 uppercase">
                         Input Params (JSON)
                     </label>
                     <textarea
-                        rows={3}
-                        value={
-                            typeof formData.config?.input_params === "object"
-                                ? JSON.stringify(
-                                      formData.config?.input_params,
-                                      null,
-                                      2,
-                                  )
-                                : formData.config?.input_params || ""
-                        }
-                        onChange={(e) =>
-                            handleConfigChange("inputParams", e.target.value)
-                        }
-                        className="p-2 border-2 border-olive-900 font-mono text-xs outline-none"
+                        rows={4}
+                        value={jsonInputText}
+                        onChange={(e) => handleJsonChange(e.target.value)}
+                        className="p-2 border-2 border-olive-900 font-mono text-xs outline-none bg-white"
                     />
                 </div>
 
+                {/* CONDITION EXPRESSION (Tampil Khusus Node Condition / Selalu Ada) */}
+                <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-amber-900 uppercase flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                        Condition Expression
+                    </label>
+                    <input
+                        type="text"
+                        placeholder="e.g. total_belanja >= minimum_belanja"
+                        value={formData.config?.condition_expression || ""}
+                        onChange={(e) =>
+                            handleConfigChange(
+                                "condition_expression",
+                                e.target.value,
+                            )
+                        }
+                        className="p-2 border-2 border-olive-900 text-xs font-mono outline-none bg-amber-50 font-semibold"
+                    />
+                </div>
+
+                {/* VALIDATION RULES */}
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-olive-900 uppercase">
                         Validation Logic
@@ -155,14 +187,15 @@ export default function RightSidebar({ selectedNode, onNodeDataChange }) {
                         value={formData.config?.validation_rules || ""}
                         onChange={(e) =>
                             handleConfigChange(
-                                "validationRules",
+                                "validation_rules",
                                 e.target.value,
                             )
                         }
-                        className="p-2 border-2 border-olive-900 text-xs outline-none"
+                        className="p-2 border-2 border-olive-900 text-xs outline-none bg-white font-mono"
                     />
                 </div>
 
+                {/* PROCESS LOGIC */}
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-olive-900 uppercase">
                         Process Logic
@@ -171,12 +204,13 @@ export default function RightSidebar({ selectedNode, onNodeDataChange }) {
                         type="text"
                         value={formData.config?.process_logic || ""}
                         onChange={(e) =>
-                            handleConfigChange("processLogic", e.target.value)
+                            handleConfigChange("process_logic", e.target.value)
                         }
-                        className="p-2 border-2 border-olive-900 text-xs outline-none"
+                        className="p-2 border-2 border-olive-900 text-xs outline-none bg-white font-mono"
                     />
                 </div>
 
+                {/* DESCRIPTION */}
                 <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-olive-900 uppercase">
                         Description
@@ -187,7 +221,7 @@ export default function RightSidebar({ selectedNode, onNodeDataChange }) {
                         onChange={(e) =>
                             handleRootChange("description", e.target.value)
                         }
-                        className="p-2 border-2 border-olive-900 text-xs outline-none"
+                        className="p-2 border-2 border-olive-900 text-xs outline-none bg-white"
                     />
                 </div>
             </div>

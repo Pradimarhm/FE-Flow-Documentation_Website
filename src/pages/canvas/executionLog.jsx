@@ -6,6 +6,8 @@ import {
     CircleCheck,
     CircleAlert,
     Loader2,
+    Terminal, // 👈 Import icon Terminal untuk empty state
+    Activity,
 } from "lucide-react";
 
 const statusConfig = {
@@ -19,21 +21,64 @@ const statusConfig = {
     PENDING: { icon: CircleAlert, color: "text-slate-400", bg: "bg-slate-50" },
 };
 
-export default function ExecutionLog({ logs = [], showRunId = true }) {
+export default function ExecutionLog({
+    logs = [],
+    showRunId = true,
+    isFetching = false,
+}) {
     const [expandedId, setExpandedId] = useState(null);
 
     const toggleExpand = (id) => {
         setExpandedId(expandedId === id ? null : id);
     };
 
-    if (logs.length === 0) {
+    // 1. FULL CANVAS LOADING STATE (Tampil saat fetching ke BE)
+    if (isFetching) {
         return (
-            <div className="flex items-center justify-center h-full text-gray-500 italic text-sm p-4">
-                Belum ada aktivitas simulasi...
+            <div className="flex flex-col items-center justify-center h-full w-full bg-olive-50/50 p-6 gap-3 select-none">
+                <div className="p-3 bg-white rounded-sm border-2 border-olive-900 shadow-[3px_3px_0px_rgba(54,69,79,1)]">
+                    <Loader2
+                        size={28}
+                        className="animate-spin text-olive-900"
+                    />
+                </div>
+                <div className="text-center">
+                    <h4 className="text-xs font-black text-olive-900 uppercase tracking-wider">
+                        Memproses Simulasi di Server...
+                    </h4>
+                    <p className="text-[11px] font-semibold text-olive-600 mt-0.5">
+                        Mengirim payload & mengeksekusi urutan node di Backend.
+                        Mohon tunggu sebentar.
+                    </p>
+                </div>
             </div>
         );
     }
 
+    // 2. EMPTY STATE DENGAN ICON LUCIDE & NEOBRUTALISM STYLE 🚀
+    if (logs.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full w-full bg-olive-50/30 p-6 gap-2 select-none">
+                <div className="p-2.5 bg-olive-200 border-2 border-olive-900 rounded-sm shadow-[3px_3px_0px_rgba(54,69,79,1)]">
+                    <Terminal size={24} className="text-olive-900" />
+                </div>
+                <div className="text-center">
+                    <h4 className="text-xs font-black text-olive-900 uppercase tracking-wider">
+                        Belum Ada Aktivitas Simulasi
+                    </h4>
+                    <p className="text-[11px] font-semibold text-olive-600 mt-0.5">
+                        Klik tombol{" "}
+                        <span className="font-extrabold text-olive-900">
+                            "Run Simulation"
+                        </span>{" "}
+                        di atas untuk menguji alur flow.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    // 3. TABEL LOGS
     return (
         <div className="w-full h-full overflow-auto">
             <table className="w-full text-sm border-collapse">
@@ -150,10 +195,10 @@ export default function ExecutionLog({ logs = [], showRunId = true }) {
                                                             "string"
                                                                 ? log.data
                                                                 : JSON.stringify(
-                                                                        log.data,
-                                                                        null,
-                                                                        2,
-                                                                    )}
+                                                                      log.data,
+                                                                      null,
+                                                                      2,
+                                                                  )}
                                                         </pre>
                                                     </div>
                                                 )}

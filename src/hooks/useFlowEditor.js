@@ -17,46 +17,46 @@ const isTempId = (id) => String(id).startsWith("temp_");
 
 const BASIC_NODE_DEFAULT_CONFIG = {
     start: {
-        inputParams: {},
-        validationRules: "",
-        processLogic: "// Titik awal alur, tidak memproses data",
-        outputTemplate: {},
+        input_params: {},
+        validation_rules: "",
+        process_logic: "// Titik awal alur, tidak memproses data",
+        output_template: {},
     },
     process: {
-        inputParams: { input: "" },
-        validationRules: "required:input",
-        processLogic: "// Proses data input di sini",
-        outputTemplate: { result: "" },
+        input_params: { input: "" },
+        validation_rules: "required:input",
+        process_logic: "// Proses data input di sini",
+        output_template: { result: "" },
     },
     validation: {
-        inputParams: { value: "" },
-        validationRules: "value != null",
-        processLogic: "// Validasi input sebelum lanjut ke node berikutnya",
-        outputTemplate: { valid: true },
+        input_params: { value: "" },
+        validation_rules: "value != null",
+        process_logic: "// Validasi input sebelum lanjut ke node berikutnya",
+        output_template: { valid: true },
     },
     database: {
-        inputParams: { query: "", table: "" },
-        validationRules: "table != null",
-        processLogic: "// Eksekusi query ke database",
-        outputTemplate: { rows: [] },
+        input_params: { query: "", table: "" },
+        validation_rules: "table != null",
+        process_logic: "// Eksekusi query ke database",
+        output_template: { rows: [] },
     },
     api: {
-        inputParams: { method: "GET", url: "", headers: {} },
-        validationRules: "url != null",
-        processLogic: "// Kirim request API ke endpoint eksternal",
-        outputTemplate: { status: 200, body: {} },
+        input_params: { method: "GET", url: "", headers: {} },
+        validation_rules: "url != null",
+        process_logic: "// Kirim request API ke endpoint eksternal",
+        output_template: { status: 200, body: {} },
     },
     condition: {
-        inputParams: { variable: "" },
-        validationRules: "variable == true",
-        processLogic: "// Evaluasi kondisi boolean (True / False)",
-        outputTemplate: { branch: "true" },
+        input_params: { variable: "" },
+        validation_rules: "variable == true",
+        process_logic: "// Evaluasi kondisi boolean (True / False)",
+        output_template: { branch: "true" },
     },
     end: {
-        inputParams: {},
-        validationRules: "",
-        processLogic: "// Titik akhir alur",
-        outputTemplate: {},
+        input_params: {},
+        validation_rules: "",
+        process_logic: "// Titik akhir alur",
+        output_template: {},
     },
 };
 
@@ -76,30 +76,50 @@ const buildNodeContent = (rawPayload) => {
         category,
         template_id: rawPayload.template_id || null,
         config: {
-            inputParams: sourceConfig.inputParams ?? fallbackConfig.inputParams,
-            validationRules:
-                sourceConfig.validationRules ?? fallbackConfig.validationRules,
-            processLogic:
-                sourceConfig.processLogic ?? fallbackConfig.processLogic,
-            outputTemplate:
-                sourceConfig.outputTemplate ?? fallbackConfig.outputTemplate,
+            input_params:
+                sourceConfig.input_params ??
+                sourceConfig.inputParams ??
+                fallbackConfig.input_params,
+            validation_rules:
+                sourceConfig.validation_rules ??
+                sourceConfig.validationRules ??
+                fallbackConfig.validation_rules,
+            process_logic:
+                sourceConfig.process_logic ??
+                sourceConfig.processLogic ??
+                fallbackConfig.process_logic,
+            output_template:
+                sourceConfig.output_template ??
+                sourceConfig.outputTemplate ??
+                fallbackConfig.output_template,
         },
         description: sourceConfig.description || rawPayload.description || "",
     };
 };
 
-const toNodeApiPayload = (node, orderIndex = 0) => ({
-    template_id: node.data?.template_id || null,
-    node_type: node.data?.category || "process",
-    label: node.data?.label || "Node Baru",
-    pos_x: Math.round(node.position?.x ?? 0),
-    pos_y: Math.round(node.position?.y ?? 0),
-    order_index: orderIndex,
-    input_params: node.data?.config?.inputParams || {},
-    validation_rules: node.data?.config?.validationRules || "",
-    process_logic: node.data?.config?.processLogic || "",
-    output_template: node.data?.config?.outputTemplate || {},
-});
+const toNodeApiPayload = (node, orderIndex = 0) => {
+    const cfg = node.data?.config || {};
+    return {
+        template_id: node.data?.template_id || null,
+        node_type: (
+            node.data?.category ||
+            node.data?.type ||
+            "process"
+        ).toLowerCase(),
+        label: node.data?.label || "Node Baru",
+        pos_x: Math.round(node.position?.x ?? 0),
+        pos_y: Math.round(node.position?.y ?? 0),
+        // order_index: orderIndex,
+        order_index: node.data?.order_index ?? orderIndex ?? 1,
+        // Fallback ganda: cek versi snake_case dulu, kalau tidak ada cek camelCase
+        input_params: cfg.input_params ?? cfg.inputParams ?? {},
+        validation_rules: cfg.validation_rules ?? cfg.validationRules ?? "",
+        process_logic: cfg.process_logic ?? cfg.processLogic ?? "",
+        condition_expression:
+            cfg.condition_expression ?? cfg.conditionExpression ?? "",
+        output_template: cfg.output_template ?? cfg.outputTemplate ?? {},
+    };
+};
 
 export const useFlowEditor = (flowId, setSelectedNode) => {
     const [nodes, setNodes, onNodesChangeInternal] = useNodesState([]);
@@ -194,12 +214,17 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
                             label: n.label,
                             category: n.node_type,
                             template_id: n.template_id,
+                            order_index: n.order_index ?? 1,
                             config: {
-                                inputParams: n.input_params || {},
-                                validationRules: n.validation_rules || "",
-                                processLogic: n.process_logic || "",
-                                outputTemplate: n.output_template || {},
+                                // PAKAI SNAKE_CASE AGAR SAMA DENGAN BACKEND & RIGHTSIDEBAR
+                                input_params: n.input_params || {},
+                                validation_rules: n.validation_rules || "",
+                                process_logic: n.process_logic || "",
+                                condition_expression:
+                                    n.condition_expression || "",
+                                output_template: n.output_template || {},
                             },
+                            description: n.description || "",
                         },
                     })),
                 );
@@ -742,6 +767,13 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
         const errors = [];
 
         try {
+            // Helper internal untuk cek status 404
+            const is404Error = (err) => {
+                const code =
+                    err?.status || err?.statusCode || err?.response?.status;
+                return code === 404 || String(err?.message).includes("404");
+            };
+
             // 1. TAMBAH NODE BARU TERLEBIH DAHULU
             for (const tempId of Array.from(d.newNodeIds)) {
                 const node = nodes.find((n) => String(n.id) === String(tempId));
@@ -793,8 +825,14 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
                 try {
                     await nodeService.deleteNode(nodeId);
                 } catch (error) {
-                    console.error(`Gagal hapus node ${nodeId}:`, error);
-                    errors.push({ type: "node-delete", nodeId, error });
+                    if (is404Error(error)) {
+                        console.warn(
+                            `[SaveFlow] Node ${nodeId} sudah terhapus di DB (404), dikondisikan sukses.`,
+                        );
+                    } else {
+                        console.error(`Gagal hapus node ${nodeId}:`, error);
+                        errors.push({ type: "node-delete", nodeId, error });
+                    }
                 }
             }
 
@@ -861,8 +899,17 @@ export const useFlowEditor = (flowId, setSelectedNode) => {
                 try {
                     await connectionService.deleteConnection(edgeId);
                 } catch (error) {
-                    console.error(`Gagal hapus connection ${edgeId}:`, error);
-                    errors.push({ type: "edge-delete", edgeId, error });
+                    if (is404Error(error)) {
+                        console.warn(
+                            `[SaveFlow] Connection ${edgeId} sudah terhapus via CASCADE di DB (404), dikondisikan sukses.`,
+                        );
+                    } else {
+                        console.error(
+                            `Gagal hapus connection ${edgeId}:`,
+                            error,
+                        );
+                        errors.push({ type: "edge-delete", edgeId, error });
+                    }
                 }
             }
 

@@ -8,6 +8,8 @@ import {
     Loader2,
     RefreshCw,
     Search,
+    AlertTriangle,
+    UserX,
 } from "lucide-react";
 import { MASTER_ROLES } from "@/constants/permissionConstants";
 import ErrorPopup from "../components/error/errorPopUp";
@@ -104,7 +106,8 @@ export default function UsersPage() {
 
     return (
         <div className="w-full h-full bg-olive-50 p-6 flex flex-col gap-6 overflow-hidden">
-            <div className="flex-none flex flex-row justify-between items-center bg-olive-50 p-4 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
+            {/* Header Title & Controls */}
+            <div className="flex-none flex flex-row justify-between items-center bg-white p-4 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
                 <div>
                     <h1 className="text-xl font-black text-olive-900 uppercase tracking-wide flex items-center gap-2">
                         <User size={24} /> Manajemen User
@@ -143,17 +146,78 @@ export default function UsersPage() {
                 </div>
             </div>
 
-            <div className="flex bg-white p-5 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] overflow-y-auto relative">
+            {/* Content Area Container */}
+            <div className="flex flex-1 bg-white p-5 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] overflow-y-auto relative">
                 {isLoading && !isModalOpen ? (
-                    <div className="flex w-full justify-center items-center gap-2 text-olive-800 font-bold">
-                        <Loader2 size={20} className="animate-spin" /> Memuat
-                        data user...
+                    /*  LOADING STATE STYLE CANVAS (BADGE NEOBRUTALISM + LUCIDE ICON) */
+                    <div className="m-auto flex flex-col items-center justify-center gap-3 select-none">
+                        <div className="relative flex items-center justify-center p-4 rounded-sm bg-white border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
+                            <User size={32} className="text-olive-900" />
+                            <span className="absolute -top-2 -right-2 p-1 bg-amber-300 border border-olive-900 rounded-full shadow-[1px_1px_0px_rgba(54,69,79,1)]">
+                                <Loader2
+                                    size={16}
+                                    className="animate-spin text-olive-900"
+                                />
+                            </span>
+                        </div>
+                        <div className="text-center">
+                            <h3 className="text-sm font-black text-olive-900 uppercase tracking-wider">
+                                Memuat Data User
+                            </h3>
+                            <p className="text-xs font-bold text-olive-700 mt-0.5">
+                                Mengambil daftar pengguna sistem dari server...
+                            </p>
+                        </div>
                     </div>
                 ) : error ? (
-                    <div className="w-full p-4 bg-red-100 border-l-4 border-red-500 text-red-700 font-bold text-sm">
-                        ⚠️ {error}
+                    /*  ERROR STATE (CENTERED NEOBRUTALISM CARD) */
+                    <div className="m-auto flex flex-col items-center justify-center p-8 bg-rose-50 border-4 border-olive-900 rounded-md shadow-[8px_8px_0px_rgba(0,0,0,1)] max-w-md text-center gap-3">
+                        <div className="p-3 bg-rose-200 border-2 border-olive-900 rounded-xs shadow-[3px_3px_0px_rgba(0,0,0,1)]">
+                            <AlertTriangle
+                                size={32}
+                                className="text-rose-700"
+                            />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black text-rose-900 uppercase tracking-tight">
+                                Gagal Memuat Data
+                            </h3>
+                            <p className="text-xs font-semibold text-rose-800 mt-1">
+                                {error}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="mt-2 flex items-center gap-2 px-4 py-2 bg-white border-2 border-olive-900 text-olive-900 font-bold text-xs rounded-xs shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:bg-olive-100 active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
+                        >
+                            <RefreshCw size={14} /> Muat Ulang Halaman
+                        </button>
+                    </div>
+                ) : users.length === 0 ? (
+                    /*  EMPTY STATE (CENTERED NEOBRUTALISM CARD) */
+                    <div className="m-auto flex flex-col items-center justify-center p-8 bg-white border-4 border-olive-900 rounded-md shadow-[8px_8px_0px_rgba(0,0,0,1)] max-w-md text-center gap-3">
+                        <div className="p-3 bg-olive-200 border-2 border-olive-900 rounded-xs shadow-[3px_3px_0px_rgba(0,0,0,1)]">
+                            <UserX size={32} className="text-olive-900" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black text-olive-900 uppercase tracking-tight">
+                                User Tidak Ditemukan
+                            </h3>
+                            <p className="text-xs font-semibold text-olive-600 mt-1">
+                                {searchName
+                                    ? `Tidak ada data user yang cocok dengan kata kunci "${searchName}".`
+                                    : "Belum ada data user di dalam sistem. Klik tombol dibawah untuk menambahkan user."}
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleOpenCreateModal}
+                            className="mt-2 flex items-center gap-2 px-4 py-2 bg-green-500 text-white border-2 border-olive-900 font-bold text-xs rounded-xs shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:bg-green-600 active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
+                        >
+                            <Plus size={16} /> Tambah User Sekarang
+                        </button>
                     </div>
                 ) : (
+                    /*  TABEL DATA USER */
                     <div className="relative flex-1 overflow-y-auto">
                         <table className="w-full text-left text-sm border-collapse">
                             <thead className="bg-olive-200 border-b-2 border-olive-900 text-xs uppercase font-black sticky top-0 z-10">
@@ -170,76 +234,62 @@ export default function UsersPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {users.length === 0 ? (
-                                    <tr>
-                                        <td
-                                            colSpan={5}
-                                            className="p-4 text-center text-olive-500 font-semibold italic"
-                                        >
-                                            {searchName
-                                                ? `User dengan nama "${searchName}" tidak ditemukan.`
-                                                : "Belum ada data user."}
+                                {users.map((item) => (
+                                    <tr
+                                        key={item.id}
+                                        className="border-b border-olive-200 hover:bg-olive-50 transition-colors"
+                                    >
+                                        <td className="p-3 font-mono text-xs font-bold">
+                                            #{item.id}
+                                        </td>
+                                        <td className="p-3 font-bold">
+                                            {item.name}
+                                        </td>
+                                        <td className="p-3 font-medium text-olive-900">
+                                            {item.email}
+                                        </td>
+                                        <td className="p-3 font-bold">
+                                            <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-olive-200 border border-black">
+                                                {item.role?.name ||
+                                                    getRoleName(item.role_id)}
+                                            </span>
+                                        </td>
+                                        <td className="p-3">
+                                            <div className="flex justify-center gap-2">
+                                                <button
+                                                    onClick={() =>
+                                                        handleOpenEditModal(
+                                                            item,
+                                                        )
+                                                    }
+                                                    className="p-1.5 bg-amber-300 border border-black hover:bg-amber-400 cursor-pointer"
+                                                    title="Edit"
+                                                >
+                                                    <Edit3 size={14} />
+                                                </button>
+                                                <button
+                                                    onClick={() =>
+                                                        promptDeleteUser(
+                                                            item.id,
+                                                            item.name,
+                                                        )
+                                                    }
+                                                    className="p-1.5 bg-rose-400 text-white border border-black hover:bg-rose-500 cursor-pointer"
+                                                    title="Hapus"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
-                                ) : (
-                                    users.map((item) => (
-                                        <tr
-                                            key={item.id}
-                                            className="border-b border-olive-200 hover:bg-olive-50 transition-colors"
-                                        >
-                                            <td className="p-3 font-mono text-xs font-bold">
-                                                #{item.id}
-                                            </td>
-                                            <td className="p-3 font-bold">
-                                                {item.name}
-                                            </td>
-                                            <td className="p-3 font-medium text-olive-900">
-                                                {item.email}
-                                            </td>
-                                            <td className="p-3 font-bold">
-                                                <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-olive-200 border border-black">
-                                                    {item.role?.name ||
-                                                        getRoleName(
-                                                            item.role_id,
-                                                        )}
-                                                </span>
-                                            </td>
-                                            <td className="p-3">
-                                                <div className="flex justify-center gap-2">
-                                                    <button
-                                                        onClick={() =>
-                                                            handleOpenEditModal(
-                                                                item,
-                                                            )
-                                                        }
-                                                        className="p-1.5 bg-amber-300 border border-black hover:bg-amber-400 cursor-pointer"
-                                                        title="Edit"
-                                                    >
-                                                        <Edit3 size={14} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() =>
-                                                            promptDeleteUser(
-                                                                item.id,
-                                                                item.name,
-                                                            )
-                                                        }
-                                                        className="p-1.5 bg-rose-400 text-white border border-black hover:bg-rose-500 cursor-pointer"
-                                                        title="Hapus"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
+                                ))}
                             </tbody>
                         </table>
                     </div>
                 )}
             </div>
 
+            {/* Modal Form */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-olive-50 rounded-md border-4 border-olive-900 shadow-[8px_8px_0px_rgba(0,0,0,1)] w-full max-w-md p-6 flex flex-col gap-4">

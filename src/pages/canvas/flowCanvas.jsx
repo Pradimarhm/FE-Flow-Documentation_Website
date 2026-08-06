@@ -9,11 +9,12 @@ import {
 import "@xyflow/react/dist/style.css";
 import FloatingNodeMenu from "./floatingNodeMenu";
 import ApiNode from "./apiNode";
-import { Copy, CopyPlus, Trash2, ClipboardPaste, Loader2 } from "lucide-react";
+import { Copy, CopyPlus, Trash2, ClipboardPaste, Loader2, Workflow } from "lucide-react";
 import { useFlowEditor } from "@/hooks/useFlowEditor";
 
 export default function FlowCanvas({
     flowId,
+    flowName,
     setSelectedNode,
     onEditorReady,
     executionStatus = {},
@@ -117,9 +118,24 @@ export default function FlowCanvas({
 
     if (isLoading) {
         return (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-olive-100 gap-2 font-bold text-olive-900">
-                <Loader2 size={32} className="animate-spin text-olive-800" />
-                <p className="text-sm">Memuat Node Flow #{flowId}...</p>
+            <div className="w-full h-full flex flex-col items-center justify-center bg-olive-100 gap-3 select-none">
+                <div className="relative flex items-center justify-center p-4 rounded-sm bg-white border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
+                    <Workflow size={32} className="text-olive-900" />
+                    <span className="absolute -top-2 -right-2 p-1 bg-amber-300 border border-olive-900 rounded-full shadow-[1px_1px_0px_rgba(54,69,79,1)]">
+                        <Loader2
+                            size={18}
+                            className="animate-spin text-olive-900"
+                        />
+                    </span>
+                </div>
+                <div className="text-center">
+                    <h3 className="text-sm font-black text-olive-900 uppercase tracking-wider">
+                        Memuat Canvas Flow
+                    </h3>
+                    <p className="text-xs font-bold text-olive-700 mt-0.5">
+                        "{flowName || `Flow #${flowId}`}"
+                    </p>
+                </div>
             </div>
         );
     }
@@ -236,18 +252,6 @@ export default function FlowCanvas({
                             </button>
                         </>
                     )}
-                    {/* {menu.type === "edge" && (
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                actions.deleteEdge();
-                            }}
-                            className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100 text-left cursor-pointer transition-colors"
-                        >
-                            <Trash2 size={14} /> Hapus Koneksi
-                        </button>
-                    )} */}
 
                     {menu.type === "pane" && (
                         <button
@@ -284,7 +288,7 @@ export default function FlowCanvas({
                 onEdgeContextMenu={onEdgeContextMenu}
                 onPaneContextMenu={onPaneContextMenu}
                 edgesFocusable={true}
-                edgesUpdatable={true}
+                edgesReconnectable={true}
                 fitView
             >
                 <Controls className="bg-white border-2 border-olive-900 rounded-xs shadow-[2px_2px_0px_rgba(54,69,79,1)]" />

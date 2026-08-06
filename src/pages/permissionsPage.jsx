@@ -13,6 +13,8 @@ import {
     Loader2,
     ShieldCheck,
     RefreshCw,
+    AlertTriangle,
+    ShieldAlert,
 } from "lucide-react";
 import ErrorPopup from "../components/error/errorPopUp";
 
@@ -219,7 +221,8 @@ export default function PermissionsPage() {
 
     return (
         <div className="w-full h-full bg-olive-50 p-6 flex flex-col gap-6 overflow-hidden">
-            <div className="flex-none flex flex-row justify-between items-center bg-olive-50 p-4 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
+            {/* Header Title */}
+            <div className="flex-none flex flex-row justify-between items-center bg-white p-4 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
                 <div>
                     <h1 className="text-xl font-black text-olive-900 uppercase tracking-wide flex items-center gap-2">
                         <ShieldCheck size={24} /> Manajemen Permission
@@ -245,17 +248,77 @@ export default function PermissionsPage() {
                 </div>
             </div>
 
-            <div className="flex bg-white p-5 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] overflow-y-auto">
+            {/* Content Container */}
+            <div className="flex flex-1 bg-white p-5 rounded-sm border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)] overflow-y-auto">
                 {isLoading ? (
-                    <div className="flex w-full justify-center items-center gap-2 text-olive-800 font-bold">
-                        <Loader2 size={20} className="animate-spin" /> Memuat
-                        data permission...
+                    /* 🚀 LOADING STATE STYLE CANVAS (BADGE NEOBRUTALISM + LUCIDE ICON) */
+                    <div className="m-auto flex flex-col items-center justify-center gap-3 select-none">
+                        <div className="relative flex items-center justify-center p-4 rounded-sm bg-white border-2 border-olive-900 shadow-[4px_4px_0px_rgba(54,69,79,1)]">
+                            <ShieldCheck size={32} className="text-olive-900" />
+                            <span className="absolute -top-2 -right-2 p-1 bg-amber-300 border border-olive-900 rounded-full shadow-[1px_1px_0px_rgba(54,69,79,1)]">
+                                <Loader2
+                                    size={16}
+                                    className="animate-spin text-olive-900"
+                                />
+                            </span>
+                        </div>
+                        <div className="text-center">
+                            <h3 className="text-sm font-black text-olive-900 uppercase tracking-wider">
+                                Memuat Data Permission
+                            </h3>
+                            <p className="text-xs font-bold text-olive-700 mt-0.5">
+                                Mengambil hak akses modul & role dari server...
+                            </p>
+                        </div>
                     </div>
                 ) : error ? (
-                    <div className="w-full p-4 bg-red-100 border-l-4 border-red-500 text-red-700 font-bold text-sm">
-                        {error}
+                    /* ⚠️ ERROR STATE (CENTERED NEOBRUTALISM CARD) */
+                    <div className="m-auto flex flex-col items-center justify-center p-8 bg-rose-50 border-4 border-olive-900 rounded-md shadow-[8px_8px_0px_rgba(0,0,0,1)] max-w-md text-center gap-3">
+                        <div className="p-3 bg-rose-200 border-2 border-olive-900 rounded-xs shadow-[3px_3px_0px_rgba(0,0,0,1)]">
+                            <AlertTriangle
+                                size={32}
+                                className="text-rose-700"
+                            />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black text-rose-900 uppercase tracking-tight">
+                                Gagal Memuat Data
+                            </h3>
+                            <p className="text-xs font-semibold text-rose-800 mt-1">
+                                {error}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => fetchPermissions()}
+                            className="mt-2 flex items-center gap-2 px-4 py-2 bg-white border-2 border-olive-900 text-olive-900 font-bold text-xs rounded-xs shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:bg-olive-100 active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
+                        >
+                            <RefreshCw size={14} /> Coba Lagi
+                        </button>
+                    </div>
+                ) : permissions.length === 0 ? (
+                    /* 📭 EMPTY STATE (CENTERED NEOBRUTALISM CARD) */
+                    <div className="m-auto flex flex-col items-center justify-center p-8 bg-white border-4 border-olive-900 rounded-md shadow-[8px_8px_0px_rgba(0,0,0,1)] max-w-md text-center gap-3">
+                        <div className="p-3 bg-olive-200 border-2 border-olive-900 rounded-xs shadow-[3px_3px_0px_rgba(0,0,0,1)]">
+                            <ShieldAlert size={32} className="text-olive-900" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black text-olive-900 uppercase tracking-tight">
+                                Belum Ada Data Permission
+                            </h3>
+                            <p className="text-xs font-semibold text-olive-600 mt-1">
+                                Klik tombol dibawah ini untuk menambahkan hak
+                                akses role terhadap modul sistem.
+                            </p>
+                        </div>
+                        <button
+                            onClick={openCreateModal}
+                            className="mt-2 flex items-center gap-2 px-4 py-2 bg-green-500 text-white border-2 border-olive-900 font-bold text-xs rounded-xs shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:bg-green-600 active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
+                        >
+                            <Plus size={16} /> Tambah Permission Sekarang
+                        </button>
                     </div>
                 ) : (
+                    /* 📋 TABEL DATA PERMISSION */
                     <div className="relative flex-1 overflow-y-auto">
                         <table className="w-full text-left text-sm border-collapse">
                             <thead className="sticky top-0 z-20 bg-olive-200 border-b-2 border-olive-900 text-xs uppercase font-black">
@@ -274,74 +337,62 @@ export default function PermissionsPage() {
                                 </tr>
                             </thead>
                             <tbody className="text-xs font-semibold text-olive-900 divide-y-2 divide-olive-200">
-                                {permissions.length === 0 ? (
-                                    <tr>
-                                        <td
-                                            colSpan={5}
-                                            className="p-4 text-center text-olive-500 font-semibold italic"
-                                        >
-                                            Belum ada data permission.
+                                {permissions.map((item) => (
+                                    <tr
+                                        key={item.id}
+                                        className="border-b border-olive-500 hover:bg-olive-50 transition-colors"
+                                    >
+                                        <td className="p-3 font-mono text-xs font-bold">
+                                            #{item.id}
+                                        </td>
+                                        <td className="p-3 font-bold">
+                                            {item.role?.name ||
+                                                getRoleName(item.role_id)}
+                                        </td>
+                                        <td className="p-3 font-bold">
+                                            {item.module?.name ||
+                                                getModuleName(item.module_id)}
+                                        </td>
+                                        <td className="p-3">
+                                            <div className="flex flex-wrap gap-1">
+                                                {renderActiveBadges(
+                                                    item.permission,
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="p-3">
+                                            <div className="flex justify-center gap-2">
+                                                <button
+                                                    onClick={() =>
+                                                        openEditModal(item)
+                                                    }
+                                                    className="p-1.5 bg-amber-300 border border-black hover:bg-amber-400 cursor-pointer"
+                                                    title="Edit"
+                                                >
+                                                    <Edit3 size={14} />
+                                                </button>
+                                                <button
+                                                    onClick={() =>
+                                                        promptDeletePermission(
+                                                            item.id,
+                                                        )
+                                                    }
+                                                    className="p-1.5 bg-rose-400 text-white border border-black hover:bg-rose-500 cursor-pointer"
+                                                    title="Hapus"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
-                                ) : (
-                                    permissions.map((item) => (
-                                        <tr
-                                            key={item.id}
-                                            className="border-b border-olive-500 hover:bg-olive-50 transition-colors"
-                                        >
-                                            <td className="p-3 font-mono text-xs font-bold">
-                                                #{item.id}
-                                            </td>
-                                            <td className="p-3 font-bold">
-                                                {item.role?.name ||
-                                                    getRoleName(item.role_id)}
-                                            </td>
-                                            <td className="p-3 font-bold">
-                                                {item.module?.name ||
-                                                    getModuleName(
-                                                        item.module_id,
-                                                    )}
-                                            </td>
-                                            <td className="p-3">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {renderActiveBadges(
-                                                        item.permission,
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="p-3">
-                                                <div className="flex justify-center gap-2">
-                                                    <button
-                                                        onClick={() =>
-                                                            openEditModal(item)
-                                                        }
-                                                        className="p-1.5 bg-amber-300 border border-black hover:bg-amber-400 cursor-pointer"
-                                                        title="Edit"
-                                                    >
-                                                        <Edit3 size={14} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() =>
-                                                            promptDeletePermission(
-                                                                item.id,
-                                                            )
-                                                        }
-                                                        className="p-1.5 bg-rose-400 text-white border border-black hover:bg-rose-500 cursor-pointer"
-                                                        title="Hapus"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
+                                ))}
                             </tbody>
                         </table>
                     </div>
                 )}
             </div>
 
+            {/* Modal Form */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-olive-50 rounded-md border-4 border-olive-900 shadow-[8px_8px_0px_rgba(0,0,0,1)] w-full max-w-md p-6 flex flex-col gap-4">

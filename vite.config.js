@@ -14,4 +14,11 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  esbuild: {
+    // Menghapus console.log dan console.info HANYA saat build production
+    // console.error dan console.warn TETAP ADA untuk monitoring error fatal
+    pure: process.env.NODE_ENV === 'production' 
+      ? ['console.log', 'console.info'] 
+      : [],
+  },
 })

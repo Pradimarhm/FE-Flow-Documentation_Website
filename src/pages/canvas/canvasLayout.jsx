@@ -14,6 +14,7 @@ import FlowCanvas from "./flowCanvas";
 import RightSidebar from "./rightSidebar";
 import ExecutionLog from "./executionLog";
 import { flowService } from "@/services/flowService";
+import ErrorPopup from "@/components/error/errorPopUp";
 
 export default function CanvasLayout() {
     const { flowId } = useParams();
@@ -26,12 +27,21 @@ export default function CanvasLayout() {
     const [executionStatus, setExecutionStatus] = useState({});
     const [activeEdgeIds, setActiveEdgeIds] = useState(new Set());
     const [completedEdgeIds, setCompletedEdgeIds] = useState(new Set());
+    const [isFetchingSim, setIsFetchingSim] = useState(false);
 
     // State Modal Simulasi
     const [isSimModalOpen, setIsSimModalOpen] = useState(false);
     const [simInputJson, setSimInputJson] = useState(
         JSON.stringify({ total_belanja: 120000, employee_id: 12 }, null, 2),
     );
+
+    const [actionPopup, setActionPopup] = useState({
+        isOpen: false,
+        title: "",
+        type: "error",
+        message: "",
+        errors: null,
+    });
 
     const animationTokenRef = useRef(0);
 
@@ -82,10 +92,40 @@ export default function CanvasLayout() {
         };
     }, []);
 
-    const handleSaveFlow = async () => {
+    const executeSaveFlow = async () => {
         const result = await editorApi.saveFlow();
-        if (result?.errors) {
-            console.warn("Sebagian perubahan gagal disimpan:", result.errors);
+        if (result?.success) {
+            return { success: true };
+        }
+        return {
+            success: false,
+            errors: result?.errors || result?.error,
+        };
+    };
+
+    const handleSaveFlow = async () => {
+        const res = await executeSaveFlow();
+
+        if (res.success) {
+            setActionPopup({
+                isOpen: true,
+                title: "Berhasil Disimpan!",
+                type: "success",
+                message:
+                    "Seluruh perubahan node & koneksi pada flow berhasil tersimpan ke server.",
+                errors: null,
+                onConfirm: null,
+            });
+        } else {
+            setActionPopup({
+                isOpen: true,
+                title: "Gagal Menyimpan Flow",
+                type: "error",
+                message:
+                    "Terjadi kesalahan saat menyimpan perubahan ke server. Silakan coba lagi.",
+                errors: res.errors || null,
+                onConfirm: null,
+            });
         }
     };
 
@@ -128,9 +168,21 @@ export default function CanvasLayout() {
         const initialQueue = nodesSnapshot
             .filter((n) => (indegree.get(n.id) || 0) === 0)
             .sort((a, b) => {
-                const aIsStart = a.data?.category === "start" ? -1 : 0;
-                const bIsStart = b.data?.category === "start" ? -1 : 0;
-                if (aIsStart !== bIsStart) return aIsStart - bIsStart;
+                const typeA = (
+                    a.data?.category ||
+                    a.data?.type ||
+                    ""
+                ).toLowerCase();
+                const typeB = (
+                    b.data?.category ||
+                    b.data?.type ||
+                    ""
+                ).toLowerCase();
+
+                // Node 'start' WAJIB di paling depan array execution!
+                if (typeA === "start" && typeB !== "start") return -1;
+                if (typeA !== "start" && typeB === "start") return 1;
+
                 return (a.position?.y ?? 0) - (b.position?.y ?? 0);
             });
 
@@ -248,10 +300,10 @@ export default function CanvasLayout() {
 
             const incomingEdge = prevNodeId
                 ? edgesSnapshot.find(
-                    (e) =>
-                        String(e.source) === prevNodeId &&
-                        String(e.target) === nodeId,
-                )
+                      (e) =>
+                          String(e.source) === prevNodeId &&
+                          String(e.target) === nodeId,
+                  )
                 : null;
 
             setExecutionStatus((prev) => ({ ...prev, [nodeId]: "running" }));
@@ -286,11 +338,11 @@ export default function CanvasLayout() {
             const durationMs =
                 prevExecutedAt && exec.executed_at
                     ? Math.max(
-                        0,
-                        new Date(exec.executed_at).getTime() -
-                            new Date(prevExecutedAt).getTime(),
-                    )
-                : null;
+                          0,
+                          new Date(exec.executed_at).getTime() -
+                              new Date(prevExecutedAt).getTime(),
+                      )
+                    : null;
 
             pushLog({
                 id: exec.id ?? `${nodeId}-${exec.executed_at}`,
@@ -321,101 +373,146 @@ export default function CanvasLayout() {
     // 1. Tombol Header memanggil fungsi ini (Buka Modal)
     const handleOpenSimModal = () => {
         if (editorApi.isDirty) {
-            const proceed = window.confirm(
-                "Masih ada perubahan yang belum disimpan. Simpan flow dulu sebelum menjalankan simulasi?",
-            );
-            if (proceed) handleSaveFlow();
-            else return;
+            setActionPopup({
+                isOpen: true,
+                title: "Simpan Perubahan Flow?",
+                type: "confirm",
+                message:
+                    "Ada perubahan alur yang belum disimpan. Simpan sekarang agar simulasi dapat berjalan dengan alur terbaru?",
+                confirmLabel: "Simpan & Jalankan",
+                cancelLabel: "Batal",
+                loadingLabel: "Menyimpan...", // 👈 Label tombol saat loading simpan
+                errors: null,
+                onConfirm: async () => {
+                    const res = await executeSaveFlow();
+
+                    if (res.success) {
+                        // Berhasil simpan -> Buka modal simulasi!
+                        setIsSimModalOpen(true);
+                    } else {
+                        // Gagal simpan -> Munculkan alert error
+                        setActionPopup({
+                            isOpen: true,
+                            title: "Gagal Menyimpan Flow",
+                            type: "error",
+                            message:
+                                "Simulasi tidak dapat dijalankan karena perubahan flow gagal disimpan ke server.",
+                            errors: res.errors || null,
+                            onConfirm: null,
+                        });
+                    }
+                },
+            });
+            return;
         }
+
+        // Jika flow sudah bersih (isDirty === false)
         setIsSimModalOpen(true);
     };
 
+    // 2. Tombol "Jalankan Simulasi" di Modal memanggil fungsi ini
     // 2. Tombol "Jalankan Simulasi" di Modal memanggil fungsi ini
     const handleExecuteSimulation = async () => {
         let parsedInputData = {};
         try {
             parsedInputData = JSON.parse(simInputJson);
         } catch (e) {
-            alert("Format Input Data harus JSON yang valid!");
+            setActionPopup({
+                isOpen: true,
+                title: "Format JSON Tidak Valid",
+                type: "error",
+                message: "Format Input Data harus JSON yang valid!",
+            });
             return;
         }
 
         setIsSimModalOpen(false);
         animationTokenRef.current += 1;
         setIsRunning(true);
+        setIsFetchingSim(true);
         setIsBottomOpen(true);
         setLogs([]);
         setExecutionStatus({});
         setActiveEdgeIds(new Set());
         setCompletedEdgeIds(new Set());
 
-        const nodesSnapshot = editorApi.getNodes ? editorApi.getNodes() : [];
         const edgesSnapshot = editorApi.getEdges ? editorApi.getEdges() : [];
-
-        if (nodesSnapshot.length === 0) {
-            pushLog({
-                id: `empty-${Date.now()}`,
-                time: formatTime(),
-                node: "System",
-                type: "Info",
-                status: "FAILED",
-                message:
-                    "Flow ini belum punya node, tidak ada yang bisa disimulasikan.",
-                duration: null,
-                data: null,
-            });
-            setIsRunning(false);
-            return;
-        }
 
         let fullSimData = {};
         try {
+            // Kirim permintaan simulasi ke backend
             const res = await flowService.runSimulation(
                 flowId,
                 parsedInputData,
             );
             fullSimData = res?.data || res || {};
         } catch (err) {
-            console.warn(
-                "⚠️ Backend simulasi error, fallback ke simulasi lokal:",
-                err,
-            );
+            // console.error("⚠️ Backend simulasi error:", err);
+
+            // Ambil pesan error dari payload response BE (Laravel)
+            const errorMessage =
+                err?.response?.data?.message || "Gagal menjalankan simulasi";
+
+            // Push ke log bawah
+            pushLog({
+                id: `err-${Date.now()}`,
+                time: formatTime(),
+                node: "System",
+                type: "Error",
+                status: "FAILED",
+                message: errorMessage,
+                duration: null,
+                data: null,
+            });
+
+            // 🚀 TAMPILKAN POPUP ERROR NEOBRUTALISM KETIKA BE MENGEMBALIKAN 422 / ERROR PENTING
+            setActionPopup({
+                isOpen: true,
+                title: "Simulasi Gagal Dibuat",
+                type: "warning",
+                message: errorMessage, // misal: "Flow ini belum punya node start, simulasi tidak bisa dibuat"
+                errors: err?.errors || err?.response?.data?.errors || null,
+            });
+
+            setIsRunning(false);
+            return;
+        } finally {
+            setIsFetchingSim(false);
         }
 
         const backendExecutions = Array.isArray(fullSimData?.node_executions)
             ? fullSimData.node_executions
             : [];
-        const hasRealExecutions = backendExecutions.some((exec) =>
-            nodesSnapshot.some(
-                (n) => String(n.id) === String(exec.flow_node_id),
-            ),
-        );
 
-        let executionSource = fullSimData;
-        if (!hasRealExecutions) {
-            executionSource = {
-                ...fullSimData,
-                node_executions: buildLocalExecutions(
-                    nodesSnapshot,
-                    edgesSnapshot,
-                    parsedInputData,
-                ),
-            };
+        if (backendExecutions.length === 0) {
+            const warningMsg =
+                "Flow ini belum punya node start atau node tidak terhubung dengan benar.";
+
             pushLog({
                 id: `notice-${Date.now()}`,
                 time: formatTime(),
                 runId: fullSimData?.id,
                 node: "System",
-                type: "Info",
-                status: "PENDING",
-                message:
-                    "Backend belum mengembalikan hasil eksekusi per-node yang valid — menjalankan simulasi visual berdasarkan urutan node di canvas.",
+                type: "Warning",
+                status: "FAILED",
+                message: warningMsg,
                 duration: null,
                 data: null,
             });
+
+            setActionPopup({
+                isOpen: true,
+                title: "Simulasi Tidak Dapat Dijalankan",
+                type: "warning",
+                message: warningMsg,
+            });
+
+            setIsRunning(false);
+            return;
         }
 
-        await animateExecution(executionSource, edgesSnapshot);
+        // Jalankan animasi murni berdasarkan data eksekusi riil dari backend
+        await animateExecution(fullSimData, edgesSnapshot);
     };
 
     return (
@@ -426,7 +523,7 @@ export default function CanvasLayout() {
                     <div className="flex flex-row gap-4 items-center">
                         <Link
                             to="/flows"
-                            className="flex items-center gap-2 p-2 hover:bg-olive-200 border border-transparent hover:border-black"
+                            className="flex items-center gap-2 p-2 rounded-sm hover:bg-olive-200 border border-transparent hover:border-black"
                         >
                             <ArrowLeft size={18} />
                             <p className="text-xs font-bold text-olive-900">
@@ -502,6 +599,7 @@ export default function CanvasLayout() {
                     <div className="flex-1 h-full relative">
                         <FlowCanvas
                             flowId={flowId}
+                            flowName={flowDetail?.name}
                             setSelectedNode={setSelectedNode}
                             onEditorReady={handleEditorReady}
                             executionStatus={executionStatus}
@@ -556,7 +654,10 @@ export default function CanvasLayout() {
                     </div>
                     {isBottomOpen && (
                         <div className="flex-1 overflow-hidden">
-                            <ExecutionLog logs={logs} />
+                            <ExecutionLog
+                                logs={logs}
+                                isFetching={isFetchingSim}
+                            />
                         </div>
                     )}
                 </div>
@@ -564,7 +665,7 @@ export default function CanvasLayout() {
                 {/* Modal Input Data Simulasi */}
                 {isSimModalOpen && (
                     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-                        <div className="bg-olive-50 border-4 border-olive-900 p-6 w-full max-w-lg shadow-[10px_10px_0px_rgba(0,0,0,1)] flex flex-col gap-4">
+                        <div className="bg-olive-50 rounded-lg border-4 border-olive-900 p-6 w-full max-w-lg shadow-[10px_10px_0px_rgba(0,0,0,1)] flex flex-col gap-4">
                             <div className="border-b-2 border-olive-900 pb-2">
                                 <h3 className="text-lg font-black text-olive-900 uppercase">
                                     Input Data Simulasi (Start Node)
@@ -585,7 +686,7 @@ export default function CanvasLayout() {
                                     onChange={(e) =>
                                         setSimInputJson(e.target.value)
                                     }
-                                    className="p-3 border-2 border-olive-900 bg-white font-mono text-xs outline-none"
+                                    className="p-3 rounded-sm border-2 border-olive-900 bg-white font-mono text-xs outline-none"
                                     placeholder='{ "total_belanja": 150000 }'
                                 />
                             </div>
@@ -594,14 +695,14 @@ export default function CanvasLayout() {
                                 <button
                                     type="button"
                                     onClick={() => setIsSimModalOpen(false)}
-                                    className="px-4 py-2 border-2 border-olive-900 bg-white text-xs font-bold hover:bg-olive-200 cursor-pointer"
+                                    className="px-4 py-2 rounded-sm border-2 border-olive-900 bg-white text-xs font-bold hover:bg-olive-200 cursor-pointer"
                                 >
                                     Batal
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleExecuteSimulation}
-                                    className="flex items-center gap-2 px-4 py-2 border-2 border-olive-900 bg-green-500 text-white text-xs font-bold shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-green-600 active:translate-y-0.5 active:shadow-none cursor-pointer"
+                                    className="flex items-center gap-2 px-4 py-2 rounded-sm border-2 border-olive-900 bg-green-500 text-white text-xs font-bold shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-green-600 active:translate-y-0.5 active:shadow-none cursor-pointer"
                                 >
                                     <Rocket size={16} /> Jalankan Simulasi
                                 </button>
@@ -609,6 +710,21 @@ export default function CanvasLayout() {
                         </div>
                     </div>
                 )}
+                {/* Modal Error Popup */}
+                <ErrorPopup
+                    isOpen={actionPopup.isOpen}
+                    onClose={() =>
+                        setActionPopup({ ...actionPopup, isOpen: false })
+                    }
+                    title={actionPopup.title}
+                    type={actionPopup.type}
+                    message={actionPopup.message}
+                    errors={actionPopup.errors}
+                    onConfirm={actionPopup.onConfirm}
+                    confirmLabel={actionPopup.confirmLabel}
+                    cancelLabel={actionPopup.cancelLabel}
+                    loadingLabel={actionPopup.loadingLabel} // 👈 Pasang prop ini
+                />
             </div>
         </ReactFlowProvider>
     );

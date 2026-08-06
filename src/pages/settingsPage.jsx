@@ -1,6 +1,6 @@
 // src/pages/SettingsPage.jsx
 import React, { useEffect, useState } from "react";
-import { Settings, User, KeyRound, Loader2, Eye, EyeOff, ShieldCheck, Mail } from "lucide-react";
+import { Settings, User, KeyRound, Loader2, Eye, EyeOff, ShieldCheck, Mail, SquareCheckBig  } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { authService } from "../services/authService";
 import ErrorPopup from "../components/error/errorPopUp"; 
@@ -157,8 +157,11 @@ export default function SettingsPage() {
                     </h2>
 
                     {successMessage && (
-                        <div className="p-3 bg-green-200 border-2 border-black text-green-900 font-bold text-xs">
-                            ✅ {successMessage}
+                        <div className="flex flex-row gap-2 items-center p-3 bg-green-200 border-2 border-black text-green-900 font-bold text-xs">
+                            <span>
+                                <SquareCheckBig  size={24} />
+                            </span>                            
+                            {successMessage}
                         </div>
                     )}
 
